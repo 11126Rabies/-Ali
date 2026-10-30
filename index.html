@@ -1,1 +1,2719 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบข้อมูลแหล่งแม่น้ำกก อ.แม่อาย</title>
+  <link rel="icon" type="image/png" href="logo-moph.png" />
+  <!-- Google Fonts: Sarabun & Prompt -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="styles.css?v=source69-20261029" />
+</head>
+<body>
 
+  <!-- ==================== LOGIN MODAL / SCREEN ==================== -->
+  <div id="login-screen" class="login-overlay" style="display:none;">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo">
+          <img src="logo-moph.png" alt="ตรากระทรวงสาธารณสุข" onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'fa-solid fa-droplet\'></i>';" />
+        </div>
+        <h1>ระบบข้อมูลแหล่งแม่น้ำกก อ.แม่อาย</h1>
+        <p>ฐานข้อมูลพิกัดแหล่งน้ำ 147 บ่อ, ผลตรวจคุณภาพน้ำ & ระบบคัดกรองความเสี่ยงสารหนู (Env-As-01 / Env-As-02)<br/>สสอ.แม่อาย (ต.ท่าตอน และ ต.แม่นาวาง อ.แม่อาย จ.เชียงใหม่)</p>
+      </div>
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label><i class="fa-solid fa-user"></i> ชื่อผู้ใช้งาน (Username)</label>
+          <input type="text" id="login-username" value="admin" placeholder="เช่น admin หรือ staff" required />
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-lock"></i> รหัสผ่าน (Password)</label>
+          <input type="password" id="login-password" value="1234" placeholder="รหัสผ่าน (ค่าเริ่มต้น 1234)" required />
+        </div>
+        <div id="login-error" class="login-error" style="display:none;">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg">
+          <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่โปรแกรม
+        </button>
+        <div class="login-hint">
+          <span>บัญชีเริ่มต้น: <b>admin</b> / รหัส <b>1234</b> หรือ <b>staff</b> / <b>1234</b></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN APP CONTAINER ==================== -->
+  <div id="app-container" class="app-container" style="display:block;">
+    
+    <!-- Top Navigation Bar -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <div class="brand-logo">
+          <img src="logo-moph.png" alt="กระทรวงสาธารณสุข" />
+        </div>
+        <div>
+          <h2>ระบบข้อมูลแหล่งแม่น้ำกก อ.แม่อาย</h2>
+          <span class="subtitle">แหล่งน้ำ 147 บ่อ | ผลตรวจชุมชน สสอ. | คัดกรอง Env-As-01 (ประเมินเชียงใหม่ 69 244 / เก็บปัสสาวะ 101 ราย), Env-As-02 & 2Q</span>
+        </div>
+      </div>
+
+      <nav class="topbar-nav">
+        <button class="nav-tab active" data-tab="tab-dashboard" onclick="switchTab('tab-dashboard')">
+          <i class="fa-solid fa-chart-pie"></i> แดชบอร์ดสรุปผล
+        </button>
+        <button class="nav-tab" data-tab="tab-map" onclick="switchTab('tab-map')">
+          <i class="fa-solid fa-earth-asia"></i> แผนที่พิกัด & ภูมิอากาศ
+        </button>
+        <button class="nav-tab" data-tab="tab-screening" onclick="switchTab('tab-screening')">
+          <i class="fa-solid fa-clipboard-check"></i> ระบบบันทึกการคัดกรอง (Env-As & 2Q)
+        </button>
+        <button class="nav-tab" data-tab="tab-wells" onclick="switchTab('tab-wells')">
+          <i class="fa-solid fa-faucet-drip"></i> แหล่งน้ำ (<span id="nav-well-count">147</span>)
+        </button>
+        <button class="nav-tab" data-tab="tab-waterlab" onclick="switchTab('tab-waterlab')">
+          <i class="fa-solid fa-flask-vial"></i> ผลตรวจแล็บน้ำ (<span id="nav-lab-count">10</span>)
+        </button>
+        <button class="nav-tab" data-tab="tab-respondents" onclick="switchTab('tab-respondents')">
+          <i class="fa-solid fa-users"></i> ทะเบียน Env-As-01 (<span id="nav-resp-count">244</span>)
+        </button>
+        <button class="nav-tab" data-tab="tab-knowledge" onclick="switchTab('tab-knowledge')">
+          <i class="fa-solid fa-book-medical"></i> ความรู้ / คู่มือแนวทาง
+        </button>
+        <button class="nav-tab" data-tab="tab-import" onclick="switchTab('tab-import')">
+          <i class="fa-solid fa-file-import"></i> นำเข้าข้อมูลจำนวนมาก
+        </button>
+        <button class="nav-tab" data-tab="tab-sheets" onclick="switchTab('tab-sheets')">
+          <i class="fa-brands fa-google-drive"></i> ตั้งค่า Google Sheets
+        </button>
+      </nav>
+
+      <div class="topbar-user">
+        <span id="sync-status-badge" class="badge badge-local" title="สถานะการเชื่อมต่อฐานข้อมูล">
+          <i class="fa-solid fa-database"></i> โหมดพร้อมใช้งาน (Local + Cloud)
+        </span>
+        <div class="user-info">
+          <i class="fa-solid fa-circle-user"></i>
+          <span id="current-user-display">Admin</span>
+        </div>
+        <button class="btn btn-outline-light btn-sm" onclick="handleLogout()" title="ออกจากระบบ">
+          <i class="fa-solid fa-power-off"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Summary KPI Bar -->
+    <aside class="source-notice"><strong id="dynamic-source-notice"></strong><details><summary>ที่มาและข้อมูลที่รอตรวจสอบ</summary><div id="data-quality-details"></div><p>ผลตรวจใช้เฉพาะชีทผลการตรวจแหล่งน้ำในชุมชน สสอ. ปี 69 หน่วยตามต้นฉบับ; ภาพเกณฑ์ปี 2543 เป็นเอกสารอ้างอิงเดิม ไม่ใช่ผลตรวจ</p></details></aside><section class="kpi-bar">
+      <div class="kpi-card kpi-wells" onclick="switchTab('tab-wells')">
+        <div class="kpi-icon"><i class="fa-solid fa-bore-hole"></i></div>
+        <div class="kpi-content">
+          <span class="kpi-label">แหล่งน้ำทั้งหมด (สสอ.)</span>
+          <strong class="kpi-value" id="kpi-total-wells">147</strong>
+          <small class="kpi-sub" id="kpi-well-sub">บาดาล 93 | น้ำตื้น 43 | ประปาภูเขา 11</small>
+        </div>
+      </div>
+      <div class="kpi-card kpi-sample" onclick="filterWellsFromDashboard('SAMPLE')">
+        <div class="kpi-icon"><i class="fa-solid fa-flask-vial"></i></div>
+        <div class="kpi-content">
+          <span class="kpi-label">จุดที่มีรหัสตัวอย่างในทะเบียน</span>
+          <strong class="kpi-value" id="kpi-sample-wells">43</strong>
+          <small class="kpi-sub">มีรหัสยังไม่ยืนยันว่าเชื่อมผลตรวจแล้ว</small>
+        </div>
+      </div>
+      <div class="kpi-card kpi-near-river" onclick="filterWellsFromDashboard('NEAR100')">
+        <div class="kpi-icon"><i class="fa-solid fa-water"></i></div>
+        <div class="kpi-content">
+          <span class="kpi-label">บ่อน้ำใกล้แม่น้ำกก (≤ 100 ม.)</span>
+          <strong class="kpi-value" id="kpi-near-wells">0</strong>
+          <small class="kpi-sub">คลิกเพื่อกรองบ่อระยะ ≤100ม.</small>
+        </div>
+      </div>
+      <div class="kpi-card kpi-total" onclick="switchTab('tab-screening')">
+        <div class="kpi-icon"><i class="fa-solid fa-people-group"></i></div>
+        <div class="kpi-content">
+          <span class="kpi-label">ประเมินเชียงใหม่ 69 / เก็บปัสสาวะ</span>
+          <strong class="kpi-value" id="kpi-total-resp">244 / 101</strong>
+          <small class="kpi-sub" id="kpi-tambon-sub">ประเมินเชียงใหม่ 69 244 | เก็บปัสสาวะ 101 ราย</small>
+        </div>
+      </div>
+      <div class="kpi-card kpi-high" onclick="filterByRiskFromKpi('ปานกลาง-มาก')">
+        <div class="kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="kpi-content">
+          <span class="kpi-label">กลุ่มเสี่ยงปานกลาง - มาก</span>
+          <strong class="kpi-value" id="kpi-risk-alert">45</strong>
+          <small class="kpi-sub" id="kpi-risk-sub">ต่ำ 198 | ปานกลาง 41 | มาก 4</small>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 0: EXECUTIVE DASHBOARD (147 WELLS + 244 RESPONSE / 90 URINE + 2Q) ==================== -->
+    <main id="tab-dashboard" class="tab-content active">
+      <div class="dashboard-wrapper">
+        <div class="dash-banner">
+          <div>
+            <h2><i class="fa-solid fa-chart-line"></i> ระบบข้อมูลแหล่งแม่น้ำกก อ.แม่อาย : แดชบอร์ดแหล่งน้ำ 147 บ่อ & ผลคัดกรองสารหนู ปี 2569</h2>
+            <p>แสดงผลแยกชัดเจนระหว่าง <b>แท็บที่ 1: ประเมินเชียงใหม่ 69</b> และ <b>แท็บที่ 2: Env-As-02 / เก็บเชียงใหม่ 69</b> พร้อมจำแนกรายตำบล ราย รพ.สต. รายหมู่บ้าน และแดชบอร์ดคัดกรอง 2Q</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="switchTab('tab-map')">
+              <i class="fa-solid fa-map-location-dot"></i> เปิดแผนที่ดาวเทียม/ภูมิอากาศ
+            </button>
+            <button class="btn btn-success" onclick="switchTab('tab-screening')">
+              <i class="fa-solid fa-clipboard-check"></i> บันทึกคัดกรอง (Env-As-01 / 02)
+            </button>
+            <button class="btn btn-primary" style="background:#7c3aed; border-color:#6d28d9;" onclick="open2QModal()">
+              <i class="fa-solid fa-brain"></i> + คัดกรองสุขภาพจิต 2Q
+            </button>
+          </div>
+        </div>
+
+        <!-- Row 1: 3 Visual Analytics Cards (Water Wells) -->
+        <div class="dash-grid-3">
+          <!-- Card 1: By Well Type -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-faucet-drip"></i> สัดส่วนประเภทแหล่งน้ำ (147 บ่อ)</h3>
+              <span class="badge-pill">แยกตามลักษณะบ่อ</span>
+            </div>
+            <div id="chart-well-types" class="bar-chart-container"></div>
+          </div>
+
+          <!-- Card 2: By Distance from Kok River -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-ruler-horizontal"></i> ระยะห่างจากแม่น้ำกก (เมตร)</h3>
+              <span class="badge-pill">คลิกกรองตามระยะห่าง</span>
+            </div>
+            <div id="chart-well-distance" class="bar-chart-container"></div>
+          </div>
+
+          <!-- Card 3: By Health Promoting Hospital (รพ.สต.) -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-hospital"></i> แหล่งน้ำแยกตามเขตรับผิดชอบ รพ.สต.</h3>
+              <span class="badge-pill">ตามที่ระบุในต้นฉบับ</span>
+            </div>
+            <div id="chart-well-hc" class="bar-chart-container"></div>
+          </div>
+        </div>
+
+        <!-- Row 2: SEPARATED DISPLAY FOR TAB 1 (ประเมินเชียงใหม่ 69 244 ราย) VS TAB 2 (Env-As-02 / เก็บเชียงใหม่ 69 101 ราย) -->
+        <div class="dash-grid-2">
+          <!-- Left Card: แท็บที่ 1 ประเมินเชียงใหม่ 69 -->
+          <div class="dash-card" style="border-top: 4px solid #0284c7;">
+            <div class="dash-card-header" style="flex-wrap:wrap; gap:8px;">
+              <div>
+                <h3 style="color:#0369a1;"><i class="fa-solid fa-users-viewfinder"></i> ขั้นตอนที่ 1: Env-As-01 ผลคัดกรอง "ประเมินเชียงใหม่ 69" (<span id="dash-tab1-total">244</span> ราย)</h3>
+                <small style="color:#64748b;">ข้อมูลผู้รับการคัดกรองตามชีทประเมินเชียงใหม่ 69 (ข้อมูลตามชีทประเมินเชียงใหม่ 69; ไม่บวกยอดขั้นตอน 2 เป็นคนใหม่)</small>
+              </div>
+              <button class="btn btn-sm btn-outline" onclick="filterRespondentsByTab('ALL')">ดูทะเบียนขั้นแรก &rarr;</button>
+            </div>
+            <div id="chart-resp-tab1-risk" class="bar-chart-container" style="margin-bottom:14px;"></div>
+
+            <h4 style="font-size:13px; color:#0369a1; margin-bottom:6px;">
+              <i class="fa-solid fa-table-cells"></i> สรุประดับความเสี่ยง แท็บ "ประเมินเชียงใหม่ 69" แยกตามตำบล
+            </h4>
+            <table class="pivot-table" style="max-width:100%; margin-bottom:10px;">
+              <thead>
+                <tr>
+                  <th>ระดับความเสี่ยง (แท็บประเมินเชียงใหม่ 69)</th>
+                  <th>เกณฑ์คะแนน</th>
+                  <th class="text-center">ต.ท่าตอน</th>
+                  <th class="text-center">ต.แม่นาวาง</th>
+                  <th class="text-center">รวม (ราย)</th>
+                  <th>มาตรการดำเนินการ</th>
+                </tr>
+              </thead>
+              <tbody id="dash-risk-matrix-tab1-body"></tbody>
+            </table>
+          </div>
+
+          <!-- Right Card: แท็บที่ 2 Env-As-02 / เก็บเชียงใหม่ 69 -->
+          <div class="dash-card" style="border-top: 4px solid #0d9488;">
+            <div class="dash-card-header" style="flex-wrap:wrap; gap:8px;">
+              <div>
+                <h3 style="color:#0f766e;"><i class="fa-solid fa-vial-circle-check"></i> ขั้นตอนที่ 2: ซักประวัติและเก็บปัสสาวะ "Env-As-02 / เก็บเชียงใหม่ 69" (<span id="dash-tab2-total">101</span> ราย)</h3>
+                <small style="color:#64748b;">กลุ่มเป้าหมายส่งตรวจปัสสาวะ (ตามชีทเก็บเชียงใหม่ 69; รายละเอียดซักประวัติที่ไม่อยู่ในต้นฉบับยังไม่บันทึก)</small>
+              </div>
+              <button class="btn btn-sm btn-outline" onclick="filterRespondentsByTab('TARGET_90')">ดูทะเบียนขั้น 2 &rarr;</button>
+            </div>
+            <div id="chart-resp-tab2-risk" class="bar-chart-container" style="margin-bottom:14px;"></div>
+
+            <h4 style="font-size:13px; color:#0f766e; margin-bottom:6px;">
+              <i class="fa-solid fa-layer-group"></i> สรุปกลุ่มเป้าหมาย & เกณฑ์คัดเลือก แท็บ "Env-As-02 / เก็บเชียงใหม่ 69"
+            </h4>
+            <table class="pivot-table" style="max-width:100%; margin-bottom:10px;">
+              <thead>
+                <tr>
+                  <th>กลุ่มเป้าหมาย / เกณฑ์คัดเลือก (หมายเหตุ)</th>
+                  <th class="text-center">ต.ท่าตอน</th>
+                  <th class="text-center">ต.แม่นาวาง</th>
+                  <th class="text-center">รวม (ราย)</th>
+                </tr>
+              </thead>
+              <tbody id="dash-pivot-tab2-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Row 3: BREAKDOWN OF ENV-AS-01 BY TAMBON, BY HEALTH CENTER (รพ.สต.), AND BY VILLAGE (หมู่บ้าน) -->
+        <div class="dash-card" style="margin-bottom:18px; border-top: 4px solid #2563eb;">
+          <div class="dash-card-header" style="flex-wrap:wrap; gap:10px;">
+            <div>
+              <h3 style="font-size:16px; color:#1e3a8a;"><i class="fa-solid fa-sitemap"></i> ข้อมูลผู้สัมผัสสารหนู (Env-As-01) แยกรายตำบล, ราย รพ.สต. และรายหมู่บ้าน (เปรียบเทียบแท็บประเมินเชียงใหม่ 69 vs แท็บเก็บปัสสาวะ)</h3>
+              <small style="color:#64748b;">คลิกเลือกชุดข้อมูลมุมขวาบน หรือดูตารางเปรียบเทียบทั้งแท็บประเมินเชียงใหม่ 69 และแท็บEnv-As-02 / เก็บเชียงใหม่ 69 แยกตามพื้นที่</small>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <label style="font-size:12.5px; font-weight:600; color:#1e3a8a;">เลือกแท็บข้อมูลที่แสดง:</label>
+              <span id="dash-resp-tab-filter">แสดงทั้งสองขั้นตอนแยกกัน</span>
+            </div>
+          </div>
+
+          <div class="dash-grid-2" style="margin-bottom:14px;">
+            <!-- Breakdown 1: รายตำบล (By Tambon) -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+              <h4 style="font-size:13.5px; color:#0f172a; margin-bottom:8px;">
+                <i class="fa-solid fa-map-pin" style="color:#2563eb;"></i> 1. แยกตามรายตำบล (ต.ท่าตอน และ ต.แม่นาวาง)
+              </h4>
+              <div class="table-responsive">
+                <table class="data-table compact-table">
+                  <thead><tr><th>ตำบล</th><th>ขั้น 1 รวม</th><th>ขั้น 1 ต่ำ</th><th>ขั้น 1 ปานกลาง</th><th>ขั้น 1 มาก</th><th>ขั้น 2 รวม</th><th>ขั้น 2 ต่ำ</th><th>ขั้น 2 ปานกลาง</th><th>ขั้น 2 มาก</th></tr></thead>
+                  <tbody id="dash-resp-by-tambon-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Breakdown 2: ราย รพ.สต. (By Health Center) -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+              <h4 style="font-size:13.5px; color:#0f172a; margin-bottom:8px;">
+                <i class="fa-solid fa-hospital-user" style="color:#0d9488;"></i> 2. แยกตามราย รพ.สต. ที่รับผิดชอบ
+              </h4>
+              <div class="table-responsive">
+                <table class="data-table compact-table">
+                  <thead><tr><th>รพ.สต.</th><th>พื้นที่</th><th>ขั้น 1 รวม</th><th>ขั้น 1 ต่ำ</th><th>ขั้น 1 ปานกลาง</th><th>ขั้น 1 มาก</th><th>ขั้น 2 รวม</th><th>ขั้น 2 ต่ำ</th><th>ขั้น 2 ปานกลาง</th><th>ขั้น 2 มาก</th></tr></thead>
+                  <tbody id="dash-resp-by-hc-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Breakdown 3: รายหมู่บ้าน (By Moo / Village) -->
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+              <h4 style="font-size:13.5px; color:#0f172a; margin:0;">
+                <i class="fa-solid fa-house-chimney-user" style="color:#d97706;"></i> 3. แยกตามรายหมู่บ้าน (ตำบล / หมู่ที่ / รพ.สต.) เปรียบเทียบแท็บประเมินเชียงใหม่ 69 และแท็บเก็บปัสสาวะ
+              </h4>
+              <span style="font-size:12px; color:#64748b;">คลิกที่แถวหมู่บ้านเพื่อดูรายชื่อผู้รับการคัดกรองในหมู่บ้านนั้น</span>
+            </div>
+            <div class="table-responsive" style="max-height:360px;">
+              <table class="data-table compact-table">
+                <thead><tr><th>ตำบล</th><th>หมู่</th><th>รพ.สต.</th><th>ขั้น 1 รวม</th><th>ขั้น 1 ต่ำ</th><th>ขั้น 1 ปานกลาง</th><th>ขั้น 1 มาก</th><th>ขั้น 2 รวม</th><th>ขั้น 2 ต่ำ</th><th>ขั้น 2 ปานกลาง</th><th>ขั้น 2 มาก</th><th>ระยะสัมผัส</th></tr></thead>
+                <tbody id="dash-resp-by-moo-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 4: 2Q MENTAL HEALTH SCREENING DASHBOARD & WATER WELLS BY MOO -->
+        <div class="dash-grid-2">
+          <!-- Left: 2Q Mental Health Screening Dashboard -->
+          <div class="dash-card" style="border-top: 4px solid #7c3aed;">
+            <div class="dash-card-header" style="flex-wrap:wrap; gap:8px;">
+              <div>
+                <h3 style="color:#6d28d9;"><i class="fa-solid fa-brain"></i> แดชบอร์ดการคัดกรองสุขภาพจิต 2Q (โรคซึมเศร้า 2 คำถาม)</h3>
+                <small style="color:#64748b;">เฝ้าระวังสุขภาพจิตประชาชนในพื้นที่เสี่ยงสารหนู (ตอบ "ใช่" อย่างน้อย 1 ข้อ = มีความเสี่ยง ส่งต่อประเมิน 9Q)</small>
+              </div>
+              <button class="btn btn-sm btn-primary" style="background:#7c3aed; border-color:#6d28d9;" onclick="open2QModal()">
+                <i class="fa-solid fa-plus"></i> + บันทึกคัดกรอง 2Q
+              </button>
+            </div>
+            <div id="chart-2q-overview" class="bar-chart-container" style="margin-bottom:12px;"></div>
+            <h4 style="font-size:13px; color:#6d28d9; margin-bottom:6px;">
+              <i class="fa-solid fa-table-list"></i> สรุปผลการคัดกรอง 2Q แยกตามตำบลและ รพ.สต.
+            </h4>
+            <div class="table-responsive">
+              <table class="data-table compact-table">
+                <thead>
+                  <tr>
+                    <th>รพ.สต. / พื้นที่</th>
+                    <th class="text-center">เป้าหมายทั้งหมด</th>
+                    <th class="text-center">คัดกรอง 2Q แล้ว</th>
+                    <th class="text-center" style="color:#15803d;">ปกติ (2Q-)</th>
+                    <th class="text-center" style="color:#b91c1c;">เสี่ยงซึมเศร้า (2Q+)</th>
+                    <th class="text-center">รอคัดกรอง</th>
+                  </tr>
+                </thead>
+                <tbody id="dash-2q-hc-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Right: Table of Wells by Tambon & Moo -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-table-list"></i> สรุปจำนวนแหล่งน้ำแยกตามตำบล หมู่บ้าน และประเภทบ่อ (147 บ่อ)</h3>
+              <button class="btn btn-sm btn-outline" onclick="exportWellsCsv()"><i class="fa-solid fa-file-csv"></i> ดาวน์โหลด CSV 147 บ่อ</button>
+            </div>
+            <div class="table-responsive" style="max-height: 360px;">
+              <table class="data-table compact-table">
+                <thead><tr><th>ตำบล</th><th>หมู่</th><th>น้ำตื้น</th><th>บาดาล</th><th>ประปาภูเขา</th><th>รวมแหล่งน้ำ</th><th>มีรหัสตัวอย่าง</th><th>ผู้ใช้ที่ระบุในต้นฉบับ</th></tr></thead>
+                <tbody id="dash-moo-breakdown-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== TAB 1: INTERACTIVE MAP (SATELLITE & WEATHER) ==================== -->
+    <main id="tab-map" class="tab-content">
+      <div class="map-workspace">
+        <aside class="map-sidebar">
+          <div class="sidebar-section">
+            <h3><i class="fa-solid fa-layer-group"></i> รูปแบบแผนที่ & ภูมิอากาศ</h3>
+            <div class="layer-Grid">
+              <button class="layer-btn active" id="btn-layer-sat" onclick="setBaseMap('satellite')">
+                <i class="fa-solid fa-satellite"></i>
+                <span>ดาวเทียม (Satellite Hybrid)</span>
+              </button>
+              <button class="layer-btn" id="btn-layer-terrain" onclick="setBaseMap('terrain')">
+                <i class="fa-solid fa-mountain-sun"></i>
+                <span>ภูมิประเทศ (Terrain/Topo)</span>
+              </button>
+              <button class="layer-btn" id="btn-layer-street" onclick="setBaseMap('street')">
+                <i class="fa-solid fa-road"></i>
+                <span>แผนที่ถนนมาตรฐาน (OSM)</span>
+              </button>
+            </div>
+
+            <div class="weather-toggles">
+              <label class="toggle-row">
+                <input type="checkbox" id="chk-weather-radar" onchange="toggleWeatherRadar(this.checked)" />
+                <span><i class="fa-solid fa-cloud-showers-heavy"></i> เปิดเรดาร์กลุ่มฝน/ภูมิอากาศสด (RainViewer Live Radar)</span>
+              </label>
+              <label class="toggle-row">
+                <input type="checkbox" id="chk-show-wells" checked onchange="renderMapMarkers()" />
+                <span><i class="fa-solid fa-faucet-drip"></i> แสดงหมุดจุดแหล่งน้ำ (147 บ่อ)</span>
+              </label>
+              <label class="toggle-row">
+                <input type="checkbox" id="chk-show-people" checked onchange="renderMapMarkers()" />
+                <span><i class="fa-solid fa-house-user"></i> แสดงหมุดบ้านกลุ่มเป้าหมาย (130 ราย)</span>
+              </label>
+              <label class="toggle-row">
+                <input type="checkbox" id="chk-show-links" checked onchange="renderMapMarkers()" />
+                <span><i class="fa-solid fa-diagram-project"></i> แสดงเส้นเชื่อมโยง บ้าน ↔ บ่อน้ำที่ใช้ร่วมกัน</span>
+              </label>
+            </div>
+
+            <div class="weather-box" id="weather-box">
+              <div class="weather-box-header">
+                <span><i class="fa-solid fa-cloud-sun-rain"></i> สภาพภูมิอากาศปัจจุบัน (อ.แม่อาย)</span>
+                <button class="btn-icon" onclick="fetchLocalWeather()" title="อัปเดตสภาพอากาศ"><i class="fa-solid fa-rotate"></i></button>
+              </div>
+              <div class="weather-box-body" id="weather-box-body">
+                กำลังดึงข้อมูลภูมิอากาศ (อุณหภูมิ, ความชื้น, ลม, ปริมาณฝน)...
+              </div>
+            </div>
+          </div>
+
+          <div class="sidebar-section">
+            <h3><i class="fa-solid fa-filter"></i> กรองข้อมูลบนแผนที่</h3>
+            <div class="form-group-compact">
+              <label>ตำบล:</label>
+              <select id="map-filter-tambon" onchange="renderMapMarkers()">
+                <option value="ALL">ทั้งหมด (ท่าตอน + แม่นาวาง)</option>
+                <option value="ท่าตอน">ต.ท่าตอน</option>
+                <option value="แม่นาวาง">ต.แม่นาวาง</option>
+              </select>
+            </div>
+            <div class="form-group-compact">
+              <label>ประเภทแหล่งน้ำ:</label>
+              <select id="map-filter-welltype" onchange="renderMapMarkers()">
+                <option value="ALL">-- ทุกประเภทแหล่งน้ำ (147 บ่อ) --</option>
+                <option value="บ่อน้ำตื้น">บ่อน้ำตื้น (43 บ่อ)</option>
+                <option value="บ่อบาดาล">บ่อบาดาล (93 บ่อ)</option>
+                <option value="ประปาภูเขา">ประปาภูเขา (11 บ่อ)</option>
+                <option value="SAMPLE_ONLY">เฉพาะจุดเก็บตัวอย่างส่งตรวจ (P1 - P43)</option>
+              </select>
+            </div>
+            <div class="form-group-compact">
+              <label>ระยะห่างจากแม่น้ำกก:</label>
+              <select id="map-filter-dist" onchange="renderMapMarkers()">
+                <option value="ALL">-- ทุกระยะห่าง --</option>
+                <option value="ไม่เกิน 100 เมตร">ไม่เกิน 100 เมตร</option>
+                <option value="101 - 200 เมตร">101 - 200 เมตร</option>
+                <option value="201 - 300 เมตร">201 - 300 เมตร</option>
+                <option value="มากกว่า 300 เมตร">มากกว่า 300 เมตร</option>
+              </select>
+            </div>
+            <div class="form-group-compact">
+              <label>จุดบ่อน้ำ (ดูเฉพาะบ่อและคนที่ใช้บ่อนี้):</label>
+              <select id="map-filter-well" onchange="renderMapMarkers()">
+                <option value="ALL">-- ทุกบ่อน้ำ --</option>
+              </select>
+            </div>
+            <div class="form-group-compact">
+              <label>ระดับความเสี่ยงสารหนู (รายบุคคล):</label>
+              <select id="map-filter-risk" onchange="renderMapMarkers()">
+                <option value="ALL">-- ทุกระดับความเสี่ยง --</option>
+                <option value="ต่ำ">ต่ำ (0 - &lt;10 คะแนน)</option>
+                <option value="ปานกลาง">ปานกลาง (10 - &lt;20 คะแนน)</option>
+                <option value="มาก">มาก/สูง (≥ 20 คะแนน)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="map-legend">
+            <h4>สัญลักษณ์บนแผนที่ (Legend)</h4>
+            <div class="legend-item"><span class="dot dot-well-danger"></span> บ่อน้ำ: เป้าหมายส่งตรวจ (P1 - P43)</div>
+            <div class="legend-item"><span class="dot dot-well-warn"></span> บ่อน้ำตื้น / เฝ้าระวังใกล้แม่น้ำกก</div>
+            <div class="legend-item"><span class="dot dot-well-safe"></span> บ่อบาดาล / ประปาภูเขา</div>
+            <hr style="margin:5px 0; border:none; border-top:1px solid #cbd5e1;"/>
+            <div class="legend-item"><span class="dot dot-person-low"></span> บุคคล: ความเสี่ยงต่ำ (&lt;10)</div>
+            <div class="legend-item"><span class="dot dot-person-med"></span> บุคคล: ความเสี่ยงปานกลาง (10-19.5)</div>
+            <div class="legend-item"><span class="dot dot-person-high"></span> บุคคล: ความเสี่ยงสูง/มาก (≥20)</div>
+          </div>
+        </aside>
+
+        <div class="map-main">
+          <div id="map-canvas"></div>
+          <div class="map-floating-bar">
+            <button class="btn btn-light btn-sm" onclick="zoomToAllMarkers()">
+              <i class="fa-solid fa-expand"></i> ดูภาพรวมทั้ง 147 บ่อ
+            </button>
+            <button class="btn btn-light btn-sm" onclick="locateUserOnMap()">
+              <i class="fa-solid fa-location-crosshairs"></i> พิกัดปัจจุบันของฉัน (GPS)
+            </button>
+            <span id="map-Pick-hint" class="map-pick-hint" style="display:none;">
+              <i class="fa-solid fa-hand-pointer"></i> คลิกบนแผนที่เพื่อเลือกพิกัดที่ต้องการ...
+            </span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== TAB 2: SCREENING SYSTEM (ENV-AS-01, ENV-AS-02 & 2Q + DASHBOARD) ==================== -->
+    <main id="tab-screening" class="tab-content">
+      <div class="dashboard-wrapper">
+        <!-- Screening Sub-header & Form Selector -->
+        <div class="dash-banner" style="background: linear-gradient(90deg, #f0fdf4 0%, #e0f2fe 100%); border-color:#bae6fd;">
+          <div>
+            <h2><i class="fa-solid fa-clipboard-check"></i> ระบบบันทึกการคัดกรองและซักประวัติการสัมผัสสารหนู & คัดกรองสุขภาพจิต 2Q</h2>
+            <p>รองรับการบันทึก แก้ไข ลบ และแสดงแดชบอร์ดแยกชัดเจนระหว่าง <b>แท็บประเมินเชียงใหม่ 69</b>, <b>แท็บEnv-As-02 / เก็บเชียงใหม่ 69</b>, <b>แบบฟอร์ม Env-As-02</b> และ <b>แบบคัดกรองสุขภาพจิต 2Q</b></p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="openRespondentModal()">
+              <i class="fa-solid fa-file-medical"></i> + บันทึกแบบ Env-As-01 (ประเมินความเสี่ยง)
+            </button>
+            <button class="btn btn-success" onclick="openEnvAs02Modal()">
+              <i class="fa-solid fa-vial-circle-check"></i> + บันทึกแบบ Env-As-02 (ซักประวัติก่อนเก็บตัวอย่าง)
+            </button>
+            <button class="btn btn-primary" style="background:#7c3aed; border-color:#6d28d9;" onclick="open2QModal()">
+              <i class="fa-solid fa-brain"></i> + คัดกรองสุขภาพจิต 2Q
+            </button>
+          </div>
+        </div>
+
+        <!-- Screening Dashboard (Env-As-01 Tab 1 vs Tab 2, Env-As-02, and 2Q Analytics) -->
+        <div class="dash-grid-3">
+          <!-- Card 1: Env-As-01 (Tab 1 vs Tab 2) -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-clipboard-user"></i> แดชบอร์ด Env-As-01 (<span id="scr-as01-count">244</span> ราย)</h3>
+              <span class="badge-pill">ประเมินเชียงใหม่ 69 244 / เก็บปัสสาวะ 101</span>
+            </div>
+            <div id="scr-chart-as01-risk" class="bar-chart-container"></div>
+            <div style="margin-top:10px; padding:8px 10px; background:#f8fafc; border-radius:8px; font-size:12px;">
+              <div>📊 <b>แท็บประเมินเชียงใหม่ 69:</b> เสี่ยงต่ำ 198 | ปานกลาง 41 | มาก 4</div>
+              <div style="margin-top:4px;">🧪 <b>แท็บเก็บปัสสาวะ:</b> เสี่ยงต่ำ 71 | ปานกลาง 18 | มาก 1</div>
+            </div>
+          </div>
+
+          <!-- Card 2: Env-As-01 Top Risk Factors (11 Items) & Env-As-02 -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-list-check"></i> ข้อมูลรายข้อ & แดชบอร์ด Env-As-02 (<span id="scr-as02-count">101</span> ราย)</h3>
+              <span class="badge-pill">ส่วนที่ 4 (11 ข้อ) & ชีวภาพ</span>
+            </div>
+            <div id="scr-chart-as01-questions" class="bar-chart-container"></div>
+            <div id="scr-chart-as02-summary" class="bar-chart-container" style="margin-top:10px; border-top:1px dashed #e2e8f0; padding-top:8px;"></div>
+          </div>
+
+          <!-- Card 3: 2Q Mental Health Screening Analytics -->
+          <div class="dash-card" style="border-top: 3px solid #7c3aed;">
+            <div class="dash-card-header">
+              <h3 style="color:#6d28d9;"><i class="fa-solid fa-brain"></i> แดชบอร์ดคัดกรองสุขภาพจิต 2Q</h3>
+              <button class="btn btn-sm btn-primary" style="background:#7c3aed; border-color:#6d28d9;" onclick="open2QModal()">+ คัดกรอง 2Q</button>
+            </div>
+            <div id="scr-chart-2q-summary" class="bar-chart-container"></div>
+            <div style="margin-top:10px; padding:8px 10px; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; font-size:12px; color:#4c1d95;">
+              <div><b>ข้อ 1:</b> ใน 2 สัปดาห์ที่ผ่านมา รวมวันนี้ รู้สึกหดหู่ เศร้า หรือท้อแท้สิ้นหวัง</div>
+              <div style="margin-top:3px;"><b>ข้อ 2:</b> ใน 2 สัปดาห์ที่ผ่านมา รวมวันนี้ รู้สึกเบื่อ ทำอะไรก็ไม่เพลิดเพลิน</div>
+              <div style="margin-top:4px; color:#b91c1c;"><b>เกณฑ์:</b> ตอบ "ใช่" ≥ 1 ข้อ = มีความเสี่ยงภาวะซึมเศร้า (ส่งต่อประเมิน 9Q)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-tabs to toggle between Env-As-01 Table, Env-As-02 Table, and 2Q Table -->
+        <div class="content-card" style="margin:0;">
+          <div class="card-header-bar">
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn-primary" id="btn-subtab-as01" onclick="switchScreeningSubTab('as01')">
+                <i class="fa-solid fa-file-waveform"></i> 1. ทะเบียนแบบฟอร์ม Env-As-01 (244 / 101 ราย)
+              </button>
+              <button class="btn btn-outline" id="btn-subtab-as02" onclick="switchScreeningSubTab('as02')">
+                <i class="fa-solid fa-vial"></i> 2. ทะเบียนแบบฟอร์ม Env-As-02 (ซักประวัติก่อนเก็บตัวอย่าง)
+              </button>
+              <button class="btn btn-outline" id="btn-subtab-2q" onclick="switchScreeningSubTab('2q')">
+                <i class="fa-solid fa-brain"></i> 3. ทะเบียนคัดกรองสุขภาพจิต 2Q
+              </button>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-outline btn-sm" onclick="exportRespondentsCsv()">
+                <i class="fa-solid fa-download"></i> ส่งออก CSV (Env-As-01 & 2Q)
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="exportEnvAs02Csv()">
+                <i class="fa-solid fa-download"></i> ส่งออก CSV (Env-As-02)
+              </button>
+            </div>
+          </div>
+
+          <!-- Sub-view 1: Env-As-01 Table -->
+          <div id="subview-as01">
+            <div class="filter-toolbar">
+              <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="scr-as01-search" placeholder="ค้นหาชื่อ-สกุล (เช่น นางนารีรัตน์, ชินพันธ์, นายสินต๊ะ), เลขบัตร 13 หลัก, รหัส (NM001, OCM001)..." oninput="renderScreeningAs01Table()" />
+              </div>
+              <select id="scr-as01-tab" onchange="renderScreeningAs01Table()">
+                <option value="ALL">แท็บที่ 1: ประเมินเชียงใหม่ 69ทั้งหมด</option>
+                <option value="TARGET_90">แท็บที่ 2: เฉพาะEnv-As-02 / เก็บเชียงใหม่ 69</option>
+                <option value="GENERAL_153">ผลคัดกรองขั้นแรก</option>
+              </select>
+              <select id="scr-as01-risk" onchange="renderScreeningAs01Table()">
+                <option value="ALL">ทุกระดับความเสี่ยง</option>
+                <option value="มาก">ความเสี่ยงมาก/สูง (≥20)</option>
+                <option value="ปานกลาง">ความเสี่ยงปานกลาง (10-&lt;20)</option>
+                <option value="ต่ำ">ความเสี่ยงต่ำ (0-&lt;10)</option>
+              </select>
+            </div>
+            <div class="table-responsive" style="max-height:460px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>รหัส / แท็บข้อมูล</th>
+                    <th>วันที่ลงสำรวจ</th>
+                    <th>ชื่อ - นามสกุล</th>
+                    <th>อายุ/เพศ</th>
+                    <th>ที่อยู่ (บ้าน/หมู่/ตำบล/รพ.สต.)</th>
+                    <th>ระยะเวลาที่สัมผัส (ปี)</th>
+                    <th>อาชีพสัมผัสสารหนู</th>
+                    <th>โรคประจำตัว / อาการ</th>
+                    <th>คะแนนรวม</th>
+                    <th>ระดับความเสี่ยง</th>
+                    <th>ผลคัดกรอง 2Q</th>
+                    <th>จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="scr-as01-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Sub-view 2: Env-As-02 Table -->
+          <div id="subview-as02" style="display:none;">
+            <div class="filter-toolbar">
+              <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="scr-as02-search" placeholder="ค้นหาเลขที่แบบฟอร์ม Env-As-02, ชื่อ-สกุล, เบอร์โทร, รพ.สต...." oninput="renderScreeningAs02Table()" />
+              </div>
+            </div>
+            <div class="table-responsive" style="max-height:460px;">
+              <table class="data-table">
+                <thead><tr><th>Lab Code / เลขแบบ</th><th>วันที่ซักประวัติ</th><th>ชื่อ–นามสกุล</th><th>อายุ/เพศ/น้ำหนัก/ส่วนสูง</th><th>โทรศัพท์</th><th>หมู่/ตำบล</th><th>ระยะสัมผัส</th><th>สมุนไพร/บุหรี่/สุรา</th><th>อาหารทะเล 3 วัน</th><th>น้ำดื่ม</th><th>น้ำใช้</th><th>คะแนน/การเชื่อมขั้นแรก</th><th>สถานะประวัติ</th><th>จัดการ</th></tr></thead>
+                <tbody id="scr-as02-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Sub-view 3: 2Q Mental Health Screening Table -->
+          <div id="subview-2q" style="display:none;">
+            <div class="filter-toolbar">
+              <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="scr-2q-search" placeholder="ค้นหาชื่อ-สกุล, เลขบัตรประชาชน, รพ.สต., หมู่บ้าน..." oninput="renderScreening2QTable()" />
+              </div>
+              <select id="scr-2q-tab" onchange="renderScreening2QTable()">
+                <option value="ALL">แท็บประเมินเชียงใหม่ 69ทั้งหมด</option>
+                <option value="TARGET_90">เฉพาะแท็บEnv-As-02 / เก็บเชียงใหม่ 69</option>
+                <option value="GENERAL_153">ผลคัดกรองขั้นแรก</option>
+              </select>
+              <select id="scr-2q-status" onchange="renderScreening2QTable()">
+                <option value="ALL">ทุกสถานะการคัดกรอง 2Q</option>
+                <option value="เสี่ยงภาวะซึมเศร้า (2Q+)">มีความเสี่ยงภาวะซึมเศร้า (2Q Positive)</option>
+                <option value="ปกติ (2Q-)">ปกติ ไม่พบความเสี่ยง (2Q Negative)</option>
+                <option value="ยังไม่คัดกรอง">รอการคัดกรอง 2Q</option>
+              </select>
+              <button class="btn btn-primary btn-sm" style="background:#7c3aed; border-color:#6d28d9;" onclick="open2QModal()">
+                <i class="fa-solid fa-plus"></i> + บันทึกผลคัดกรอง 2Q
+              </button>
+            </div>
+            <div class="table-responsive" style="max-height:460px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>รหัส / แท็บข้อมูล</th>
+                    <th>ชื่อ - นามสกุล</th>
+                    <th>อายุ/เพศ</th>
+                    <th>หมู่ที่ / ตำบล / รพ.สต.</th>
+                    <th>ความเสี่ยงสารหนู</th>
+                    <th>ข้อ 1: หดหู่ เศร้า ท้อแท้</th>
+                    <th>ข้อ 2: เบื่อ ไม่เพลิดเพลิน</th>
+                    <th>สรุปผลคัดกรอง 2Q</th>
+                    <th>วันที่คัดกรอง / ผู้ประเมิน</th>
+                    <th>จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="scr-2q-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== TAB 3: WATER WELLS MANAGEMENT (147 WELLS) ==================== -->
+    <main id="tab-wells" class="tab-content">
+      <div class="content-card">
+        <div class="card-header-bar">
+          <div>
+            <h2><i class="fa-solid fa-faucet-drip"></i> ทะเบียนข้อมูลแหล่งน้ำ 147 บ่อ (สสอ.แม่อาย) และการเชื่อมโยงผู้ใช้น้ำ</h2>
+            <p>บ่อน้ำตื้น 43 บ่อ, บ่อบาดาล 93 บ่อ, ประปาภูเขา 11 บ่อ (พร้อมความลึกบ่อโดยประมาณ, พิกัด UTM 47N แปลงเป็น Lat/Lng และระยะห่างจากแม่น้ำกก)</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="openWellModal()">
+              <i class="fa-solid fa-plus"></i> เพิ่มจุดแหล่งน้ำใหม่
+            </button>
+            <button class="btn btn-outline" onclick="switchTab('tab-import')">
+              <i class="fa-solid fa-file-import"></i> นำเข้าไฟล์ CSV แหล่งน้ำ
+            </button>
+            <button class="btn btn-outline" onclick="exportWellsCsv()">
+              <i class="fa-solid fa-file-csv"></i> ส่งออก CSV แหล่งน้ำทั้งหมด
+            </button>
+          </div>
+        </div>
+
+        <div class="filter-toolbar">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="well-search" placeholder="ค้นหารหัส (P1-P43, W001), ชื่อเจ้าของบ่อ, บ้านเลขที่, รพ.สต...." oninput="renderWellsTable()" />
+          </div>
+          <select id="well-filter-tambon" onchange="renderWellsTable()">
+            <option value="ALL">ทุกตำบล</option>
+            <option value="ท่าตอน">ต.ท่าตอน</option>
+            <option value="แม่นาวาง">ต.แม่นาวาง</option>
+          </select>
+          <select id="well-filter-type" onchange="renderWellsTable()">
+            <option value="ALL">ทุกประเภทบ่อ (147)</option>
+            <option value="บ่อน้ำตื้น">บ่อน้ำตื้น (43)</option>
+            <option value="บ่อบาดาล">บ่อบาดาล (93)</option>
+            <option value="ประปาภูเขา">ประปาภูเขา (11)</option>
+            <option value="SAMPLE_ONLY">เฉพาะบ่อส่งตรวจ (P1-P43)</option>
+          </select>
+          <select id="well-filter-dist" onchange="renderWellsTable()">
+            <option value="ALL">ทุกระยะห่างแม่น้ำกก</option>
+            <option value="ไม่เกิน 100 เมตร">≤ 100 เมตร</option>
+            <option value="101 - 200 เมตร">101 - 200 เมตร</option>
+            <option value="201 - 300 เมตร">201 - 300 เมตร</option>
+            <option value="มากกว่า 300 เมตร">&gt; 300 เมตร</option>
+          </select>
+          <select id="well-filter-hc" onchange="renderWellsTable()">
+            <option value="ALL">ทุก รพ.สต.</option>
+            <option value="รพ.สต.บ้านท่าตอน">รพ.สต.บ้านท่าตอน</option>
+            <option value="รพ.สต.บ้านท่ามะแกง">รพ.สต.บ้านท่ามะแกง</option>
+            <option value="รพ.สต.บ้านเมืองงาม">รพ.สต.บ้านเมืองงาม</option>
+            <option value="รพ.สต.บ้านแม่เมืองน้อย">รพ.สต.บ้านแม่เมืองน้อย</option>
+          </select>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ลำดับ</th>
+                <th>รหัสส่งตรวจ</th>
+                <th>รหัสระบบ</th>
+                <th>ชื่อ - สกุล / ชื่อจุดแหล่งน้ำ</th>
+                <th>บ้านเลขที่ / หมู่ / ตำบล</th>
+                <th>ลักษณะบ่อ & ความลึก</th>
+                <th>พิกัด UTM (E, N) & Lat/Lng</th>
+                <th>ระยะห่างแม่น้ำกก</th>
+                <th>การใช้งาน</th>
+                <th>รูปภาพ/ไฟล์แนบ (≤5)</th>
+                <th>ผู้ใช้น้ำ (ครัวเรือน/เชื่อมโยง)</th>
+                <th>รพ.สต.</th>
+                <th>จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="wells-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== TAB 4: RESPONDENTS MANAGEMENT (244 RESPONSE / 90 URINE RECORDS) ==================== -->
+    <main id="tab-respondents" class="tab-content">
+      <div class="content-card">
+        <div class="card-header-bar">
+          <div>
+            <h2><i class="fa-solid fa-users"></i> ทะเบียนผู้รับการคัดกรองความเสี่ยงสารหนู Env-As-01 (ข้อมูลต้นฉบับปี 2569 244 ราย / เก็บปัสสาวะ 101 ราย)</h2>
+            <p>ใช้เฉพาะสองชีทปี 69 จากไฟล์สรุปการประเมินความเสี่ยงสารหนูที่ผู้ใช้กำหนด ทั้ง <b>แท็บที่ 1 "ประเมินเชียงใหม่ 69"</b> และ <b>แท็บที่ 2 "Env-As-02 / เก็บเชียงใหม่ 69"</b> พร้อมระยะเวลาที่สัมผัส (ปี) และผลคัดกรอง 2Q</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-success" onclick="openRespondentModal()">
+              <i class="fa-solid fa-user-plus"></i> เพิ่มรายชื่อผู้รับการประเมิน (Env-As-01)
+            </button>
+            <button class="btn btn-primary" style="background:#7c3aed; border-color:#6d28d9;" onclick="open2QModal()">
+              <i class="fa-solid fa-brain"></i> + คัดกรองสุขภาพจิต 2Q
+            </button>
+            <button class="btn btn-outline" onclick="exportRespondentsCsv()">
+              <i class="fa-solid fa-file-excel"></i> ส่งออกตาราง CSV (244 / 101 ราย)
+            </button>
+          </div>
+        </div>
+
+        <div class="pivot-summary-box">
+          <h4><i class="fa-solid fa-table-cells"></i> ตารางสรุปจำนวนผู้รับการคัดกรองแยกตามแท็บที่มา (แท็บประเมินเชียงใหม่ 69 244 ราย vs แท็บEnv-As-02 / เก็บเชียงใหม่ 69 101 ราย)</h4>
+          <table class="pivot-table" style="max-width:850px;">
+            <thead>
+              <tr>
+                <th>กลุ่มเป้าหมาย / แท็บที่มา (Row Labels)</th>
+                <th class="text-center">ต.ท่าตอน</th>
+                <th class="text-center">ต.แม่นาวาง</th>
+                <th class="text-center">รวมทั้งหมด (Grand Total)</th>
+              </tr>
+            </thead>
+            <tbody id="pivot-summary-body"></tbody>
+          </table>
+        </div>
+
+        <div class="filter-toolbar">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="resp-search" placeholder="ค้นหา ชื่อ-นามสกุล (เช่น นางนารีรัตน์, ชินพันธ์, นายสินต๊ะ), เลขบัตร 13 หลัก, รหัส code (GEN001, NM001, OCM001)..." oninput="renderRespondentsTable()" />
+          </div>
+          <select id="resp-filter-tab" onchange="renderRespondentsTable()">
+            <option value="ALL">แท็บที่ 1: ประเมินเชียงใหม่ 69ทั้งหมด</option>
+            <option value="TARGET_90">แท็บที่ 2: เฉพาะEnv-As-02 / เก็บเชียงใหม่ 69</option>
+            <option value="GENERAL_153">ผลคัดกรองขั้นแรก</option>
+          </select>
+          <select id="resp-filter-tambon" onchange="renderRespondentsTable()">
+            <option value="ALL">ทุกตำบล</option>
+            <option value="ท่าตอน">ต.ท่าตอน</option>
+            <option value="แม่นาวาง">ต.แม่นาวาง</option>
+          </select>
+          <select id="resp-filter-hc" onchange="renderRespondentsTable()">
+            <option value="ALL">ทุก รพ.สต.</option>
+            <option value="รพ.สต.บ้านท่าตอน">รพ.สต.บ้านท่าตอน</option>
+            <option value="รพ.สต.บ้านท่ามะแกง">รพ.สต.บ้านท่ามะแกง</option>
+            <option value="รพ.สต.บ้านเมืองงาม">รพ.สต.บ้านเมืองงาม</option>
+            <option value="รพ.สต.บ้านแม่เมืองน้อย">รพ.สต.บ้านแม่เมืองน้อย</option>
+          </select>
+          <select id="resp-filter-group" onchange="renderRespondentsTable()">
+            <option value="ALL">ทุกกลุ่มเป้าหมาย</option>
+            <option value="ประชาชนทั่วไป (แท็บประเมินเชียงใหม่ 69)">ประชาชนทั่วไป (แท็บประเมินเชียงใหม่ 69 ขั้นแรก)</option>
+            <option value="กลุ่มใหม่">กลุ่มใหม่ (เก็บปัสสาวะ 80 ราย)</option>
+            <option value="ผู้ประกอบอาชีพ">ผู้ประกอบอาชีพ (เก็บปัสสาวะ 10 ราย)</option>
+          </select>
+          <select id="resp-filter-risk" onchange="renderRespondentsTable()">
+            <option value="ALL">ทุกระดับความเสี่ยง</option>
+            <option value="ต่ำ">ความเสี่ยงต่ำ (&lt;10)</option>
+            <option value="ปานกลาง">ความเสี่ยงปานกลาง (10-&lt;20)</option>
+            <option value="มาก">ความเสี่ยงสูง/มาก (≥20)</option>
+          </select>
+          <select id="resp-filter-well" onchange="renderRespondentsTable()">
+            <option value="ALL">ทุกจุดบ่อน้ำ</option>
+          </select>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead><tr><th>ลำดับ</th><th>รหัส</th><th>ชื่อ–นามสกุล</th><th>อายุ</th><th>หมู่/ตำบล</th><th>รพ.สต.</th><th>บ่อที่เชื่อม</th><th>คะแนนตามต้นฉบับ</th><th>ความเสี่ยง</th><th>ชีทต้นฉบับ</th><th>ผล 2Q</th><th>จัดการ</th></tr></thead>
+            <tbody id="respondents-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== TAB 5: WATER QUALITY LAB RESULTS (DOH 21 PARAMETERS) ==================== -->
+    <main id="tab-waterlab" class="tab-content">
+      <div class="dashboard-wrapper">
+        <div class="dash-banner" style="background: linear-gradient(90deg, #eff6ff 0%, #f0fdfa 100%); border-color:#93c5fd;">
+          <div>
+            <h2><i class="fa-solid fa-flask-vial"></i> ผลตรวจแหล่งน้ำในชุมชน สสอ. ปี 2569</h2>
+            <p>เชื่อมโยงกับจุดบ่อน้ำทั้ง 147 บ่อ รองรับการบันทึกผลตรวจแล็บทั้ง <b>สารหนู (As), โลหะหนัก (Pb, Cd, Cr, Hg, Fe, Mn, Cu, Zn), กายภาพ/เคมี (pH, สี, ความขุ่น, TDS, ความกระด้าง, ซัลเฟต, คลอไรด์, ไนเตรท, ฟลูออไรด์, คลอรีน) และแบคทีเรียโคลิฟอร์ม</b></p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="openWaterLabModal()">
+              <i class="fa-solid fa-plus"></i> + บันทึกผลตรวจแล็บคุณภาพน้ำใหม่
+            </button>
+            <button class="btn btn-outline" onclick="openWaterStandardModal()">
+              <i class="fa-solid fa-table-list"></i> ดูตารางเกณฑ์มาตรฐานน้ำ กรมอนามัย / WHO
+            </button>
+            <button class="btn btn-outline" onclick="exportWaterLabCsv()">
+              <i class="fa-solid fa-file-csv"></i> ส่งออกผลแล็บน้ำ (.CSV)
+            </button>
+          </div>
+        </div>
+
+        <!-- Water Lab KPI Summary Cards -->
+        <div class="dash-grid-3" style="margin-bottom:16px;">
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-vials"></i> สรุปผลการตรวจคุณภาพน้ำเทียบเกณฑ์กรมอนามัย</h3>
+              <span class="badge-pill">ประเมินอัตโนมัติ 21 พารามิเตอร์</span>
+            </div>
+            <div id="chart-waterlab-status" class="bar-chart-container"></div>
+          </div>
+
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-triangle-exclamation"></i> พารามิเตอร์ที่พบเกินเกณฑ์มาตรฐานบ่อยที่สุด</h3>
+              <span class="badge-pill">แยกตามชนิดสาร/พารามิเตอร์</span>
+            </div>
+            <div id="chart-waterlab-params" class="bar-chart-container"></div>
+          </div>
+
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-image"></i> ตารางอ้างอิงเกณฑ์มาตรฐานคุณภาพน้ำบริโภค</h3>
+              <button class="btn btn-sm btn-outline" onclick="openWaterStandardModal()">ขยายดูภาพใหญ่</button>
+            </div>
+            <div style="text-align:center;">
+              <img src="water-standard-doh.jpg" alt="เกณฑ์มาตรฐานคุณภาพน้ำบริโภค กรมอนามัย" style="max-width:100%; max-height:165px; border-radius:8px; border:1px solid #cbd5e1; cursor:pointer;" onclick="openWaterStandardModal()" />
+              <div style="font-size:11.5px; color:#64748b; margin-top:4px;">คลิกที่รูปเพื่อเปิดตารางเปรียบเทียบเกณฑ์ WHO / น้ำบริโภคในชนบท / น้ำประปา กรมอนามัย (ปี 2543)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="content-card" style="margin:0;">
+          <div class="filter-toolbar">
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="waterlab-search" placeholder="ค้นหารหัสตัวอย่าง (P1-P43), รหัสบ่อน้ำ (W001), ชื่อจุดแหล่งน้ำ, พารามิเตอร์ที่ไม่ผ่านเกณฑ์..." oninput="renderWaterLabTable()" />
+            </div>
+            <select id="waterlab-filter-well" onchange="renderWaterLabTable()">
+              <option value="ALL">ทุกจุดบ่อน้ำ (147 บ่อ)</option>
+            </select>
+            <select id="waterlab-filter-result" onchange="renderWaterLabTable()">
+              <option value="ALL">ทุกผลการประเมิน</option>
+              <option value="ไม่เกินเกณฑ์เฉพาะรายการที่ประเมินได้">ไม่เกินเกณฑ์เฉพาะรายการที่ประเมินได้</option><option value="ยังสรุปไม่ได้ (มีผล ND/ข้อมูลไม่ครบ)">ยังสรุปไม่ได้ (ND/ข้อมูลไม่ครบ)</option>
+              <option value="เกินเกณฑ์มาตรฐาน">ไม่ผ่าน/เกินเกณฑ์มาตรฐาน</option>
+            </select>
+            <select id="waterlab-filter-std" onchange="renderWaterLabTable()">
+              <option value="ALL">ทุกเกณฑ์เปรียบเทียบ</option>
+              <option value="SOURCE_SSO">เกณฑ์ตามชีท สสอ. (หน่วยตามต้นฉบับ)</option><option value="DOH_2543">เกณฑ์น้ำประปา กรมอนามัย (ปี 2543)</option>
+              <option value="RURAL">เกณฑ์น้ำบริโภคในชนบท</option>
+              <option value="WHO_1984">เกณฑ์น้ำดื่ม WHO</option>
+            </select>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>รหัสใบแล็บ / รหัสส่งตรวจ</th>
+                  <th>วันที่เก็บตัวอย่าง</th>
+                  <th>จุดบ่อน้ำที่เชื่อมโยง (Well ID)</th>
+                  <th>ลักษณะบ่อ / หมู่บ้าน / ตำบล</th>
+                  <th>สารหนู As (หน่วยตามต้นฉบับ)<br/><small>เกณฑ์ ≤0.01</small></th>
+                  <th>pH / ความขุ่น / TDS<br/><small>6.5-8.5 | ≤10 | ≤1000</small></th>
+                  <th>เหล็ก (Fe) / แมงกานีส (Mn)<br/><small>≤0.5 | ≤0.3 มก./ล.</small></th>
+                  <th>ตะกั่ว / แคดเมียม / ปรอท<br/><small>ตามเกณฑ์ที่เลือกและหน่วยต้นฉบับ</small></th>
+                  <th>โคลิฟอร์ม / ฟีคัลโคลิฟอร์ม<br/><small>MPN/100 มล.</small></th>
+                  <th>พารามิเตอร์อื่นที่ตรวจ</th>
+                  <th>สรุปเฉพาะรายการที่มีข้อมูล</th>
+                  <th>จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="waterlab-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== TAB 6: KNOWLEDGE BASE & GUIDELINES MANUALS ==================== -->
+    <main id="tab-knowledge" class="tab-content">
+      <div class="dashboard-wrapper">
+        <div class="dash-banner" style="background: linear-gradient(90deg, #f0fdf4 0%, #fefce8 100%); border-color:#86efac;">
+          <div>
+            <h2><i class="fa-solid fa-book-medical"></i> คลังความรู้ คู่มือ และแนวทางการเฝ้าระวังผลกระทบต่อสุขภาพประชาชน</h2>
+            <p>รวบรวมเอกสารแนวทางปฏิบัติการเฝ้าระวังสารหนูในสิ่งแวดล้อม กรมควบคุมโรค, เกณฑ์มาตรฐานคุณภาพน้ำ กรมอนามัย, แบบฟอร์มคัดกรอง และสามารถเพิ่มไฟล์คู่มือแนวทางต่างๆ เพิ่มเติมได้ตลอดเวลา</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="openAddKnowledgeModal()">
+              <i class="fa-solid fa-file-circle-plus"></i> + เพิ่มไฟล์คู่มือ / เอกสารแนวทางใหม่
+            </button>
+            <button class="btn btn-success" onclick="previewKnowledgeDoc('DOC-001')">
+              <i class="fa-solid fa-book-open-reader"></i> เปิดอ่านคู่มือแนวทางเฝ้าระวังสารหนูฯ (58 หน้า)
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter & Search Bar for Knowledge Documents -->
+        <div class="filter-toolbar" style="background:#fff; padding:12px 16px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:16px;">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="kb-search" placeholder="ค้นหาชื่อเอกสารคู่มือ, แนวทางปฏิบัติ, มาตรฐานน้ำประปา, แบบฟอร์ม Env-As..." oninput="renderKnowledgeDocs()" />
+          </div>
+          <select id="kb-filter-cat" onchange="renderKnowledgeDocs()">
+            <option value="ALL">ทุกหมวดหมู่เอกสาร</option>
+            <option value="แนวทางปฏิบัติ/คู่มือ">แนวทางปฏิบัติ / คู่มือกรมควบคุมโรค</option>
+            <option value="มาตรฐานคุณภาพน้ำ/สิ่งแวดล้อม">มาตรฐานคุณภาพน้ำ / สิ่งแวดล้อม (กรมอนามัย/คพ.)</option>
+            <option value="แบบฟอร์มคัดกรอง/สอบสวนโรค">แบบฟอร์มคัดกรอง / สอบสวนโรค (Env-As)</option>
+            <option value="เอกสารเพิ่มเติมของพื้นที่">เอกสารเพิ่มเติมของพื้นที่ อ.แม่อาย</option>
+          </select>
+        </div>
+
+        <!-- Document Cards Grid -->
+        <div id="kb-docs-grid" class="kb-grid"></div>
+
+        <!-- Quick Reference Cheat-Sheet Extracted from the Official PDF Guideline -->
+        <div class="dash-grid-2">
+          <!-- Card 1: Biological Reference Values & ICD-10 / 21 LABFU Codes -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-vial-virus"></i> สรุปเกณฑ์อ้างอิงสารหนูในปัสสาวะ & รหัส ICD-10 / 21 LABFU (จากคู่มือบทที่ 2 & 4)</h3>
+              <span class="badge-pill">สำหรับเจ้าหน้าที่ รพ. / รพ.สต.</span>
+            </div>
+            <table class="data-table compact-table" style="margin-bottom:12px;">
+              <thead>
+                <tr>
+                  <th>รายการตรวจ / รหัสมาตรฐาน</th>
+                  <th>ค่าอ้างอิง / เกณฑ์ตัดสิน</th>
+                  <th>แนวทางปฏิบัติเมื่อเกินเกณฑ์</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>สารหนูรวมในปัสสาวะ (Total Arsenic)</b><br/><small>รหัส LABFU: <code>0850603</code> (Arsenic, urine)</small></td>
+                  <td><b>&lt; 100 µg/L</b> หรือ<br/><b>&lt; 29.9 µg/g Creatinine</b></td>
+                  <td>หากเกินเกณฑ์ ให้ลงรหัส <code>R82.6</code> และส่งตรวจแยกชนิดสารหนูอนินทรีย์ (As Speciation)</td>
+                </tr>
+                <tr>
+                  <td><b>สารหนูอนินทรีย์และสารแปรรูป (Inorganic As)</b><br/><small>ตรวจแยกชนิด (Arsenic Speciation)</small></td>
+                  <td><b>&lt; 10 µg/g Creatinine</b> หรือ<br/><b>≤ 35 µg/L</b></td>
+                  <td>หากเกิน 10 µg/g Cr เข้าเกณฑ์ <b>สอบสวนโรค (Env-As-03)</b> และส่งพบแพทย์ตรวจ CBC, LFT, CXR</td>
+                </tr>
+                <tr>
+                  <td><b>รหัสคัดกรอง ICD-10-CM</b></td>
+                  <td><code>Z13.88</code> (คัดกรองทุกราย)<br/><code>R82.6</code> (เมื่อผลปัสสาวะเกินเกณฑ์)</td>
+                  <td>กรณีแพทย์วินิจฉัยโรคพิษสารหนู ใช้รหัสหลัก <code>T57</code> + รหัสร่วม <code>Z58.2</code> + สาเหตุภายนอก <code>Y97</code></td>
+                </tr>
+                <tr>
+                  <td><b>ข้อปฏิบัติก่อนเก็บปัสสาวะ (Spot Urine)</b></td>
+                  <td>เก็บปัสสาวะแรกหลังตื่นนอน (15-20 mL ในหลอด Metal-free)</td>
+                  <td><b>งดอาหารทะเลสด/แห้ง กะปิ น้ำปลา อย่างน้อย 3 วัน</b> และงดฉีดพ่นสารกำจัดศัตรูพืช 7 วันก่อนเก็บ</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Card 2: Environmental & Food Standards from Table 2.2 of Guideline -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <h3><i class="fa-solid fa-leaf"></i> มาตรฐานระดับสารหนูในสิ่งแวดล้อมและห่วงโซ่อาหาร (ตารางที่ 2.2 ในคู่มือ)</h3>
+              <span class="badge-pill">เกณฑ์เปรียบเทียบ</span>
+            </div>
+            <table class="data-table compact-table">
+              <thead>
+                <tr>
+                  <th>ประเภทตัวอย่าง</th>
+                  <th>ค่ามาตรฐานสูงสุด</th>
+                  <th>หน่วยงาน / กฎหมายอ้างอิง</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>น้ำประปาดื่มได้ / น้ำบริโภค / น้ำบรรจุขวด</b></td>
+                  <td><span class="lab-pass">ไม่เกิน 0.01 mg/L</span></td>
+                  <td>เกณฑ์คุณภาพน้ำประปาดื่มได้ กรมอนามัย / ประกาศ สธ. (ฉบับที่ 462)</td>
+                </tr>
+                <tr>
+                  <td><b>น้ำใต้ดิน (บาดาล) และ น้ำผิวดิน (แม่น้ำกก)</b></td>
+                  <td><span class="lab-pass">ไม่เกิน 0.01 mg/L</span></td>
+                  <td>ประกาศคณะกรรมการสิ่งแวดล้อมแห่งชาติ ฉบับที่ 8 และ ฉบับที่ 20</td>
+                </tr>
+                <tr>
+                  <td><b>ตะกอนดินในแหล่งน้ำผิวดิน</b></td>
+                  <td>ปลอดภัยต่อสัตว์หน้าดิน: <b>≤ 10 mg/kg</b><br/>อันตรายรุนแรง: <b>≥ 33 mg/kg</b></td>
+                  <td>ประกาศคณะกรรมการสิ่งแวดล้อมแห่งชาติ พ.ศ. 2565</td>
+                </tr>
+                <tr>
+                  <td><b>ข้าวขัดสี / ข้าวกล้อง</b></td>
+                  <td>ข้าวขัดสี: <b>≤ 0.20 mg/kg</b> (Inorganic As)<br/>ข้าวกล้อง: <b>≤ 0.35 mg/kg</b></td>
+                  <td>ประกาศกระทรวงสาธารณสุข (ฉบับที่ 414) พ.ศ. 2563</td>
+                </tr>
+                <tr>
+                  <td><b>สัตว์น้ำ อาหารทะเล และพืชผัก/อาหารอื่น</b></td>
+                  <td>สัตว์น้ำ: <b>≤ 2.0 mg/kg</b> (Inorganic As)<br/>พืชผัก/อาหารอื่น: <b>≤ 2.0 mg/kg</b> (Total As)</td>
+                  <td>ประกาศกระทรวงสาธารณสุข (ฉบับที่ 414) พ.ศ. 2563</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== TAB 7: BULK IMPORT CSV (SEPARATED FROM GOOGLE SHEETS) ==================== -->
+    <main id="tab-import" class="tab-content">
+      <div class="content-card">
+        <div class="card-header-bar">
+          <div>
+            <h2><i class="fa-solid fa-file-import"></i> ระบบนำเข้าข้อมูลจำนวนมาก (Bulk Import CSV) และดาวน์โหลดโครงสร้างตารางตัวอย่าง</h2>
+            <p>สำหรับเจ้าหน้าที่ใช้ดาวน์โหลดไฟล์แม่แบบ (.CSV) ไปกรอกใน Excel แล้วอัปโหลดเข้าสู่ระบบได้คราวละหลายร้อยรายการ (แยกออกจากหน้าตั้งค่าลิงก์ Google Sheets เพื่อความปลอดภัย)</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-outline btn-sm" onclick="downloadFullBackupJson()">
+              <i class="fa-solid fa-download"></i> สำรองฐานข้อมูลทั้งหมด (.JSON)
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 Bulk Import Cards -->
+        <div class="form-grid-4" style="margin-bottom:20px;">
+          <!-- Template 1: Water Wells -->
+          <div class="cloud-box">
+            <h3><i class="fa-solid fa-faucet-drip"></i> 1. นำเข้าจุดแหล่งน้ำ/บ่อน้ำ</h3>
+            <p style="font-size:12px; color:#64748b; margin:6px 0 10px;">รองรับความลึกบ่อ (เมตร), พิกัด UTM (X, Y) แปลงเป็น Lat/Lng อัตโนมัติ และระยะห่างแม่น้ำกก</p>
+            <button class="btn btn-outline btn-block btn-sm" onclick="downloadTemplateCsv('wells')">
+              <i class="fa-solid fa-download"></i> โหลดไฟล์ตัวอย่างบ่อน้ำ (.CSV)
+            </button>
+            <div style="margin-top:12px;">
+              <label style="font-weight:600; font-size:12px;">เลือกไฟล์ CSV จุดบ่อน้ำ:</label>
+              <input type="file" id="import-file-wells" accept=".csv" style="margin-top:4px; width:100%;" />
+              <button class="btn btn-primary btn-block" style="margin-top:8px;" onclick="handleBulkImport('wells')">
+                <i class="fa-solid fa-upload"></i> นำเข้าข้อมูลจุดบ่อน้ำ
+              </button>
+            </div>
+          </div>
+
+          <!-- Template 2: Water Lab Results -->
+          <div class="cloud-box">
+            <h3><i class="fa-solid fa-flask-vial"></i> 2. นำเข้าผลตรวจแล็บน้ำ (21 ตัว)</h3>
+            <p style="font-size:12px; color:#64748b; margin:6px 0 10px;">นำเข้าผลตรวจคุณภาพน้ำตามเกณฑ์กรมอนามัย เชื่อมโยงกับรหัสบ่อน้ำ (<code>well_id</code>) อัตโนมัติ</p>
+            <button class="btn btn-outline btn-block btn-sm" onclick="downloadTemplateCsv('waterlab')">
+              <i class="fa-solid fa-download"></i> โหลดไฟล์ตัวอย่างผลแล็บน้ำ (.CSV)
+            </button>
+            <div style="margin-top:12px;">
+              <label style="font-weight:600; font-size:12px;">เลือกไฟล์ CSV ผลแล็บน้ำ:</label>
+              <input type="file" id="import-file-waterlab" accept=".csv" style="margin-top:4px; width:100%;" />
+              <button class="btn btn-primary btn-block" style="margin-top:8px; background:#0369a1;" onclick="handleBulkImport('waterlab')">
+                <i class="fa-solid fa-upload"></i> นำเข้าผลตรวจแล็บน้ำ
+              </button>
+            </div>
+          </div>
+
+          <!-- Template 3: Env-As-01 Respondents -->
+          <div class="cloud-box">
+            <h3><i class="fa-solid fa-file-medical"></i> 3. นำเข้าแบบคัดกรอง Env-As-01</h3>
+            <p style="font-size:12px; color:#64748b; margin:6px 0 10px;">นำเข้าผู้รับการคัดกรองพร้อมคำตอบข้อ 1-11 คำนวณคะแนนและระดับความเสี่ยงอัตโนมัติ</p>
+            <button class="btn btn-outline btn-block btn-sm" onclick="downloadTemplateCsv('as01')">
+              <i class="fa-solid fa-download"></i> โหลดตัวอย่าง Env-As-01 (.CSV)
+            </button>
+            <div style="margin-top:12px;">
+              <label style="font-weight:600; font-size:12px;">เลือกไฟล์ CSV แบบ Env-As-01:</label>
+              <input type="file" id="import-file-as01" accept=".csv" style="margin-top:4px; width:100%;" />
+              <button class="btn btn-success btn-block" style="margin-top:8px;" onclick="handleBulkImport('as01')">
+                <i class="fa-solid fa-upload"></i> นำเข้าข้อมูล Env-As-01
+              </button>
+            </div>
+          </div>
+
+          <!-- Template 4: Env-As-02 Pre-Lab -->
+          <div class="cloud-box">
+            <h3><i class="fa-solid fa-vial-circle-check"></i> 4. นำเข้าแบบซักประวัติ Env-As-02</h3>
+            <p style="font-size:12px; color:#64748b; margin:6px 0 10px;">นำเข้าข้อมูลซักประวัติก่อนเก็บตัวอย่างชีวภาพ (ยาสมุนไพร, อาหารทะเล, แหล่งน้ำดื่ม/ใช้)</p>
+            <button class="btn btn-outline btn-block btn-sm" onclick="downloadTemplateCsv('as02')">
+              <i class="fa-solid fa-download"></i> โหลดตัวอย่าง Env-As-02 (.CSV)
+            </button>
+            <div style="margin-top:12px;">
+              <label style="font-weight:600; font-size:12px;">เลือกไฟล์ CSV แบบ Env-As-02:</label>
+              <input type="file" id="import-file-as02" accept=".csv" style="margin-top:4px; width:100%;" />
+              <button class="btn btn-primary btn-block" style="margin-top:8px; background:#0284c7;" onclick="handleBulkImport('as02')">
+                <i class="fa-solid fa-upload"></i> นำเข้าข้อมูล Env-As-02
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sample Table Structure Preview -->
+        <div class="pivot-summary-box" style="margin-bottom:20px;">
+          <h4><i class="fa-solid fa-table"></i> โครงสร้างตารางการนำเข้าข้อมูลทั้ง 4 ประเภท (สามารถเปิดไฟล์ CSV ที่ดาวน์โหลดด้วยโปรแกรม Microsoft Excel ได้ทันที)</h4>
+          <div class="table-responsive" style="max-height:260px;">
+            <table class="data-table compact-table">
+              <thead>
+                <tr>
+                  <th style="width:220px;">ประเภทตาราง</th>
+                  <th>คอลัมน์หลักที่รองรับในการนำเข้า (เรียงตามลำดับคอลัมน์ในไฟล์ตัวอย่าง)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>1. ตารางแหล่งน้ำ (WaterWells)</b></td>
+                  <td><code>well_id</code>, <code>sample_code</code>, <code>well_name</code>, <code>house_no</code>, <code>moo</code>, <code>tambon</code>, <code>well_type</code>, <code>depth_meters</code> (ความลึกเมตร), <code>utm_e</code>, <code>utm_n</code>, <code>latitude</code>, <code>longitude</code>, <code>distance_river_m</code>, <code>usage_type</code>, <code>user_count</code>, <code>health_center</code></td>
+                </tr>
+                <tr>
+                  <td><b>2. ตารางผลตรวจแล็บน้ำ (WaterLab)</b></td>
+                  <td><code>well_id</code>, <code>sample_code</code>, <code>sample_date</code>, <code>lab_name</code>, <code>standard_type</code>, <code>ph</code>, <code>colour</code>, <code>turbidity</code>, <code>tds</code>, <code>hardness</code>, <code>fe</code>, <code>mn</code>, <code>cu</code>, <code>zn</code>, <code>pb</code>, <code>cr</code>, <code>cd</code>, <code>as_val</code> (สารหนู), <code>hg</code>, <code>so4</code>, <code>cl</code>, <code>no3</code>, <code>f</code>, <code>residual_cl</code>, <code>total_coliform</code>, <code>faecal_coliform</code>, <code>notes</code></td>
+                </tr>
+                <tr>
+                  <td><b>3. แบบคัดกรอง Env-As-01</b></td>
+                  <td><code>code</code>, <code>full_name</code>, <code>age</code>, <code>gender</code>, <code>cid</code>, <code>house_no</code>, <code>moo</code>, <code>tambon</code>, <code>marital_status</code>, <code>education</code>, <code>years_in_area</code>, <code>risk_job_flag</code>, <code>risk_job_type</code>, <code>job_detail</code>, <code>job_duration</code>, <code>job_hours</code>, <code>disease_flag</code>, <code>diseases</code>, <code>symptom_flag</code>, <code>symptoms</code>, <code>q1</code> ถึง <code>q11</code>, <code>target_group</code>, <code>well_id</code>, <code>survey_date</code>, <code>interviewer_name</code></td>
+                </tr>
+                <tr>
+                  <td><b>4. แบบซักประวัติ Env-As-02</b></td>
+                  <td><code>form_no</code>, <code>full_name</code>, <code>age</code>, <code>phone</code>, <code>gender</code>, <code>weight_kg</code>, <code>height_cm</code>, <code>cid</code>, <code>house_no</code>, <code>moo</code>, <code>tambon</code>, <code>within_1km_river</code>, <code>risk_job_type</code>, <code>diseases</code>, <code>herb_usage</code>, <code>smoking_status</code>, <code>alcohol_status</code>, <code>seafood_freq</code>, <code>seafood_3days</code>, <code>drink_sources</code>, <code>use_sources</code>, <code>food_rice</code>, <code>food_veg</code>, <code>eat_river_veg_weekly</code>, <code>flood_5years</code>, <code>interviewer_name</code>, <code>health_center</code>, <code>interview_date</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Export CSV Quick Bar -->
+        <div class="cloud-box" style="background:#f8fafc;">
+          <h3><i class="fa-solid fa-file-export"></i> ส่งออกข้อมูลปัจจุบันทั้งหมดเป็นไฟล์ CSV (เปิดด้วย Excel)</h3>
+          <div class="button-row" style="margin-top:10px;">
+            <button class="btn btn-outline" onclick="exportWellsCsv()"><i class="fa-solid fa-file-csv"></i> ส่งออก CSV แหล่งน้ำ 147 บ่อ</button>
+            <button class="btn btn-outline" onclick="exportWaterLabCsv()"><i class="fa-solid fa-file-csv"></i> ส่งออก CSV ผลตรวจแล็บน้ำ</button>
+            <button class="btn btn-outline" onclick="exportRespondentsCsv()"><i class="fa-solid fa-file-csv"></i> ส่งออก CSV แบบ Env-As-01 (283 ราย)</button>
+            <button class="btn btn-outline" onclick="exportEnvAs02Csv()"><i class="fa-solid fa-file-csv"></i> ส่งออก CSV แบบ Env-As-02</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== TAB 8: GOOGLE SHEETS ADMIN CONFIGURATION (SEPARATED) ==================== -->
+    <main id="tab-sheets" class="tab-content">
+      <div class="content-card">
+        <div class="card-header-bar">
+          <div>
+            <h2><i class="fa-brands fa-google-drive"></i> ตั้งค่าการเชื่อมต่อฐานข้อมูล Google Sheets (สำหรับผู้ดูแลระบบ Admin)</h2>
+            <p>แยกหน้าตั้งค่าลิงก์ Google Apps Script Web App URL ออกจากหน้านำเข้าข้อมูลทั่วไป เพื่อป้องกันไม่ให้ผู้ใช้งานทั่วไปเผลอแก้ไขหรือลบลิงก์ฐานข้อมูล</p>
+          </div>
+        </div>
+
+        <!-- Admin Protection Banner -->
+        <div id="sheets-lock-banner" class="admin-lock-banner">
+          <div>
+            <i class="fa-solid fa-shield-halved"></i>
+            <span id="sheets-lock-text"><b>ระบบจดจำลิงก์ Google Sheets อัตโนมัติ:</b> เมื่อวางลิงก์แล้ว ระบบจะบันทึกไว้ทั้งในเครื่อง (LocalStorage + IndexedDB) และซิงค์ข้อมูลอัตโนมัติทุกครั้งที่เปิดโปรแกรม</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" id="btn-unlock-gas" onclick="toggleUnlockGasInput()">
+            <i class="fa-solid fa-key"></i> ปลดล็อกแก้ไขลิงก์ (เฉพาะ Admin)
+          </button>
+        </div>
+
+        <div class="cloud-grid">
+          <div class="cloud-box" style="border:2px solid #0f766e; background:#f0fdf4;">
+            <h3><i class="fa-brands fa-google-drive"></i> เชื่อมต่อและซิงค์ข้อมูลทั้งหมดเข้า Google Sheets</h3>
+            <div class="form-group" style="margin-top:12px;">
+              <label>ลิงก์ Google Apps Script Web App URL (ที่ลงท้ายด้วย <code>/exec</code>) — <i>วางลิงก์แล้วระบบบันทึกให้อัตโนมัติทันที</i>:</label>
+              <input type="url" id="gas-url-input" oninput="autoSaveGasUrlInput(this.value)" onchange="autoSaveGasUrlInput(this.value)" placeholder="https://script.google.com/macros/s/xxxxxx/exec" />
+            </div>
+            <div class="button-row">
+              <button class="btn btn-primary" id="btn-save-gas-url" onclick="saveGasUrl()">
+                <i class="fa-solid fa-floppy-disk"></i> 1. บันทึกและล็อกลิงก์เชื่อมต่อ
+              </button>
+              <button class="btn btn-success" onclick="syncAllToGoogleSheets()">
+                <i class="fa-solid fa-cloud-arrow-up"></i> 2. อัปโหลดข้อมูลเริ่มต้นทั้งหมดขึ้น Google Sheets
+              </button>
+              <button class="btn btn-outline" onclick="pullFromGoogleSheets()">
+                <i class="fa-solid fa-cloud-arrow-down"></i> ดึงข้อมูลล่าสุดจาก Google Sheets
+              </button>
+            </div>
+            <div style="margin-top:10px; padding:10px 12px; background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; font-size:12.5px;">
+              <b><i class="fa-solid fa-thumbtack"></i> ไม่ต้องเชื่อมต่อใหม่เมื่อเปลี่ยนเครื่องหรืออัปขึ้น GitHub:</b><br/>
+              หลังจากวางลิงก์ด้านบนแล้ว คุณสามารถกดปุ่มด้านล่างนี้เพื่อฝังลิงก์ลงในไฟล์ <code>app.js</code> ถาวร เมื่อนำไปเปิดเครื่องอื่นหรืออัปโหลดขึ้น GitHub Pages โปรแกรมจะเชื่อมต่อ Google Sheets ลิงก์นี้ให้อัตโนมัติทุกครั้งโดยไม่ต้องวางลิงก์ใหม่!
+              <div style="margin-top:8px;">
+                <button type="button" class="btn btn-sm btn-primary" style="background:#1d4ed8;" onclick="saveGasUrlToAppJsFile()">
+                  <i class="fa-solid fa-file-code"></i> 📌 บันทึกฝังลิงก์นี้ลงในไฟล์ app.js ถาวร (ไม่ต้องเชื่อมต่อใหม่อีกเลย)
+                </button>
+              </div>
+            </div>
+            <div id="cloud-sync-log" class="sync-log">สถานะ: พร้อมซิงค์ข้อมูล (147 บ่อน้ำ + ผลแล็บน้ำ + 283 Env-As-01 + Env-As-02 + คู่มือ)</div>
+
+            <hr style="margin: 16px 0;" />
+            <div class="button-row">
+              <button class="btn btn-danger btn-sm" onclick="resetToSeedData()">
+                <i class="fa-solid fa-rotate-left"></i> ล้างแคชข้อมูล (โดยยังคงจำลิงก์ Google Sheets ไว้เหมือนเดิม)
+              </button>
+            </div>
+          </div>
+
+          <div class="cloud-box instruction-box">
+            <h3>ขั้นตอนการตั้งค่า Google Sheets สำหรับผู้ดูแลระบบ (ทำครั้งเดียว)</h3>
+            <ol class="step-list" style="font-size:12.5px;">
+              <li>สร้างไฟล์ Google Sheets ใน Google Drive &rarr; ไปที่เมนู <b>ส่วนขยาย (Extensions) &gt; Apps Script</b></li>
+              <li>กดปุ่ม <b>"คัดลอกโค้ด Google Apps Script"</b> ด้านล่างนี้ แล้วนำไปวางแทนที่โค้ดเดิมใน Apps Script กด Save</li>
+              <li>กดปุ่ม <b>การทำให้ใช้งานได้ (Deploy) &gt; การทำให้ใช้งานได้รายการใหม่ (New deployment)</b></li>
+              <li>เลือกประเภทเป็น <b>เว็บแอป (Web app)</b> และตั้งค่าผู้มีสิทธิ์เข้าถึงเป็น <b>ทุกคน (Anyone)</b> แล้วกด Deploy</li>
+              <li>กดปุ่ม <b>"ปลดล็อกแก้ไขลิงก์"</b> ด้านบน วาง URL ที่ได้ แล้วกดบันทึก จากนั้นกดปุ่มสีเขียวเพื่อส่งข้อมูลทั้งหมดขึ้นชีท!</li>
+            </ol>
+            <button class="btn btn-primary btn-block" onclick="copyAppsScriptCode()">
+              <i class="fa-regular fa-copy"></i> คัดลอกโค้ด Google Apps Script (รองรับ 5 ชีท: บ่อน้ำ, ผลแล็บน้ำ, Env-As-01, Env-As-02, คู่มือ)
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ==================== MODAL 1: ADD / EDIT WATER WELL ==================== -->
+  <div id="well-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="well-modal-title"><i class="fa-solid fa-faucet-drip"></i> บันทึกข้อมูลแหล่งน้ำ / จุดบ่อน้ำ</h3>
+        <button type="button" class="btn-close" onclick="closeWellModal()">&times;</button>
+      </div>
+      <form id="well-form" onsubmit="handleSaveWell(event)">
+        <div class="modal-body" id="well-modal-body">
+          <div class="form-grid-4">
+            <div class="form-group">
+              <label>รหัสระบบ (Well ID) *</label>
+              <input type="text" id="well-id" required placeholder="เช่น W148 หรือ W001-P1" />
+            </div>
+            <div class="form-group">
+              <label>รหัสส่งตรวจแล็บ (P1-P43)</label>
+              <input type="text" id="well-sample-code" placeholder="เช่น P44 (เว้นว่างได้)" />
+            </div>
+            <div class="form-group">
+              <label>ลักษณะบ่อ / ประเภทแหล่งน้ำ *</label>
+              <select id="well-type" required onchange="toggleOtherInput(this, 'well-type-other-wrap')">
+                <option value="บ่อบาดาล">บ่อบาดาล</option>
+                <option value="บ่อน้ำตื้น">บ่อน้ำตื้น</option>
+                <option value="ประปาภูเขา">ประปาภูเขา</option>
+                <option value="ประปาหมู่บ้าน">ประปาหมู่บ้าน</option>
+                <option value="จุดสูบน้ำแม่น้ำกก">จุดสูบน้ำแม่น้ำกก</option>
+                <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+              </select>
+              <div id="well-type-other-wrap" class="other-input-wrap" style="display:none;">
+                <input type="text" id="well-type-other" placeholder="ระบุลักษณะบ่อ/ประเภทแหล่งน้ำอื่นๆ..." />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>ความลึกของบ่อน้ำ (โดยประมาณ - เมตร)</label>
+              <input type="number" step="0.1" id="well-depth" placeholder="เช่น 8 หรือ 45 (เมตร)" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>ชื่อ - สกุล เจ้าของบ่อ / ชื่อจุดแหล่งน้ำ *</label>
+              <input type="text" id="well-name" required placeholder="เช่น ศาลาหมู่บ้าน หรือ นาย..." />
+            </div>
+            <div class="form-group">
+              <label>รพ.สต. ที่รับผิดชอบ *</label>
+              <select id="well-hc" onchange="toggleOtherInput(this, 'well-hc-other-wrap')">
+                <option value="รพ.สต.บ้านท่าตอน">รพ.สต.บ้านท่าตอน</option>
+                <option value="รพ.สต.บ้านท่ามะแกง">รพ.สต.บ้านท่ามะแกง</option>
+                <option value="รพ.สต.บ้านเมืองงาม">รพ.สต.บ้านเมืองงาม</option>
+                <option value="รพ.สต.บ้านแม่เมืองน้อย">รพ.สต.บ้านแม่เมืองน้อย</option>
+                <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+              </select>
+              <div id="well-hc-other-wrap" class="other-input-wrap" style="display:none;">
+                <input type="text" id="well-hc-other" placeholder="ระบุชื่อ รพ.สต. หรือหน่วยงานที่รับผิดชอบ..." />
+              </div>
+            </div>
+          </div>
+
+          <div class="coord-picker-box">
+            <div class="coord-header">
+              <strong><i class="fa-solid fa-location-dot"></i> พิกัดจุดบ่อน้ำ (รองรับทั้ง Latitude/Longitude และพิกัด UTM Zone 47N)</strong>
+              <div class="coord-actions">
+                <button type="button" class="btn btn-sm btn-primary" onclick="useCurrentGpsForWell()">
+                  <i class="fa-solid fa-crosshairs"></i> ดึงพิกัดปัจจุบัน (GPS)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline" onclick="pickLocationOnMap('well')">
+                  <i class="fa-solid fa-map-pin"></i> จิ้มเลือกจุดบนแผนที่
+                </button>
+              </div>
+            </div>
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label>ละติจูด (Latitude) *</label>
+                <input type="number" step="any" id="well-lat" required placeholder="เช่น 20.07152" />
+              </div>
+              <div class="form-group">
+                <label>ลองจิจูด (Longitude) *</label>
+                <input type="number" step="any" id="well-lng" required placeholder="เช่น 99.35878" />
+              </div>
+              <div class="form-group">
+                <label>พิกัด UTM N (X / Easting)</label>
+                <input type="number" step="any" id="well-utm-e" placeholder="เช่น 537514" onchange="convertModalUtmToLatLng()" />
+              </div>
+              <div class="form-group">
+                <label>พิกัด UTM E (Y / Northing)</label>
+                <input type="number" step="any" id="well-utm-n" placeholder="เช่น 2219436" onchange="convertModalUtmToLatLng()" />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid-4">
+            <div class="form-group">
+              <label>บ้านเลขที่</label>
+              <input type="text" id="well-house" placeholder="เช่น 24" />
+            </div>
+            <div class="form-group">
+              <label>หมู่ที่ *</label>
+              <input type="number" id="well-moo" required placeholder="เช่น 3, 4, 5, 8, 12, 14" />
+            </div>
+            <div class="form-group">
+              <label>ตำบล *</label>
+              <select id="well-tambon" required onchange="toggleOtherInput(this, 'well-tambon-other-wrap')">
+                <option value="ท่าตอน">ท่าตอน</option>
+                <option value="แม่นาวาง">แม่นาวาง</option>
+                <option value="แม่อาย">แม่อาย</option>
+                <option value="แม่สาว">แม่สาว</option>
+                <option value="สันต้นหมื้อ">สันต้นหมื้อ</option>
+                <option value="บ้านหลวง">บ้านหลวง</option>
+                <option value="มะลิกา">มะลิกา</option>
+                <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+              </select>
+              <div id="well-tambon-other-wrap" class="other-input-wrap" style="display:none;">
+                <input type="text" id="well-tambon-other" placeholder="ระบุตำบลอื่นๆ..." />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>ระยะห่างจากแม่น้ำกก (เมตร) *</label>
+              <input type="number" step="any" id="well-dist" required placeholder="เช่น 60 หรือ 150" />
+            </div>
+          </div>
+
+          <div class="form-grid-4">
+            <div class="form-group">
+              <label>ลักษณะการใช้งาน</label>
+              <select id="well-usage-select" onchange="toggleOtherInput(this, 'well-usage-other-wrap')">
+                <option value="ใช้อุปโภค">ใช้อุปโภค</option>
+                <option value="อุปโภค บริโภค">อุปโภค บริโภค</option>
+                <option value="ใช้บริโภค">ใช้บริโภค</option>
+                <option value="ใช้ทำการเกษตร">ใช้ทำการเกษตร</option>
+                <option value="ไม่ได้ใช้งาน">ไม่ได้ใช้งาน</option>
+                <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+              </select>
+              <div id="well-usage-other-wrap" class="other-input-wrap" style="display:none;">
+                <input type="text" id="well-usage" placeholder="ระบุลักษณะการใช้งานอื่นๆ..." />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>จำนวนผู้ใช้น้ำ (คน/ครัวเรือน)</label>
+              <input type="number" id="well-user-count" />
+            </div>
+            <div class="form-group">
+              <label>ค่าตรวจสารหนู (mg/L)</label>
+              <input type="number" step="0.001" id="well-arsenic" placeholder="ระบุเมื่อผลแล็บออก" />
+            </div>
+            <div class="form-group">
+              <label>สถานะแหล่งน้ำ</label>
+              <select id="well-status-select" onchange="toggleOtherInput(this, 'well-status-other-wrap')">
+                <option value="เฝ้าระวังตามระยะห่างแม่น้ำกก">เฝ้าระวังตามระยะห่างแม่น้ำกก</option>
+                <option value="เก็บตัวอย่างน้ำส่งตรวจ">เก็บตัวอย่างน้ำส่งตรวจ</option>
+                <option value="ผลตรวจปกติ (ผ่านเกณฑ์)">ผลตรวจปกติ (ผ่านเกณฑ์)</option>
+                <option value="ผลตรวจเกินค่ามาตรฐาน">ผลตรวจเกินค่ามาตรฐาน</option>
+                <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+              </select>
+              <div id="well-status-other-wrap" class="other-input-wrap" style="display:none;">
+                <input type="text" id="well-status" placeholder="ระบุสถานะแหล่งน้ำอื่นๆ..." />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>หมายเหตุเพิ่มเติม</label>
+            <textarea id="well-notes" rows="2" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
+          </div>
+
+          <!-- ส่วนแนบรูปภาพและไฟล์ PDF ของแหล่งน้ำ (สูงสุดไม่เกิน 5 ไฟล์: JPEG, PNG, PDF) -->
+          <div class="form-section" style="background:#f0f9ff; border:1px dashed #38bdf8; border-radius:10px; padding:12px 14px; margin-top:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+              <h4 style="margin:0; font-size:13.5px; color:#0369a1;">
+                <i class="fa-solid fa-camera-retro"></i> รูปภาพและไฟล์เอกสารจุดแหล่งน้ำ (สูงสุดไม่เกิน 5 ไฟล์ — รองรับไฟล์ .JPEG, .JPG, .PNG, .PDF)
+              </h4>
+              <span class="badge-pill" style="background:#e0f2fe; color:#0284c7; font-weight:700;">
+                แนบแล้ว <span id="well-files-count">0</span> / 5 ไฟล์
+              </span>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <input type="file" id="well-files-input" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" multiple onchange="handleWellFilesSelect(event)" style="background:#fff; padding:6px;" />
+              <small style="color:#64748b; display:block; margin-top:4px;">
+                สามารถเลือกเพิ่มรูปถ่ายบ่อน้ำหรือไฟล์ผลตรวจ PDF ได้สูงสุด 5 ไฟล์ต่อ 1 บ่อน้ำ (ระบบย่อขนาดภาพอัตโนมัติเพื่อให้บันทึกและแสดงผลได้รวดเร็ว)
+              </small>
+            </div>
+            <div id="well-files-preview" class="well-attachments-grid"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <span style="font-size:12px; color:#64748b;"><i class="fa-solid fa-circle-info"></i> เลื่อนขึ้น-ลงเพื่อกรอกข้อมูลให้ครบถ้วน</span>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-outline" onclick="closeWellModal()">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> บันทึกข้อมูลแหล่งน้ำ</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 2: FORM ENV-AS-01 (INDIVIDUAL RISK SCREENING) ==================== -->
+  <div id="respondent-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-header">
+        <h3 id="resp-modal-title"><i class="fa-solid fa-file-medical"></i> แบบฟอร์ม Env-As-01: แบบคัดกรองและประเมินความเสี่ยงทางสุขภาพประชาชน ระดับบุคคล</h3>
+        <button type="button" class="btn-close" onclick="closeRespondentModal()">&times;</button>
+      </div>
+      <!-- แถบปุ่มกดข้ามไปยังส่วนที่ 1, 2, 3, 4 ได้ทันที -->
+      <div class="modal-section-nav">
+        <span><i class="fa-solid fa-angles-down"></i> ข้ามไปยังส่วนที่ต้องการ:</span>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('resp-modal-body', 'as01-sec-header')">ส่วนหัว & บ่อน้ำ</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('resp-modal-body', 'as01-sec-1')">ส่วนที่ 1: ข้อมูลทั่วไป (ข้อ 1-7)</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('resp-modal-body', 'as01-sec-2')">ส่วนที่ 2: อาชีพเสี่ยง (ข้อ 1-3)</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('resp-modal-body', 'as01-sec-3')">ส่วนที่ 3: โรคประจำตัว & อาการ</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('resp-modal-body', 'as01-sec-4')">ส่วนที่ 4: ประเมินความเสี่ยง (11 ข้อ) & ผู้สัมภาษณ์</button>
+      </div>
+      <form id="respondent-form" onsubmit="handleSaveRespondent(event)">
+        <div class="modal-body" id="resp-modal-body">
+          <input type="hidden" id="resp-id" />
+
+          <!-- ส่วนหัว: เลขที่แบบคัดกรอง, วันที่ลงสำรวจ, ผู้สัมภาษณ์, การเชื่อมโยงบ่อน้ำ -->
+          <div class="form-section-box highlight-section" id="as01-sec-header">
+            <h4><i class="fa-solid fa-link"></i> ข้อมูลการสำรวจ, เลขที่แบบคัดกรอง & การเชื่อมโยงจุดบ่อน้ำ (147 บ่อ)</h4>
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label>เลขที่แบบคัดกรอง / รหัส (Code) *</label>
+                <input type="text" id="resp-code" required placeholder="เช่น NM081, OCM011, GEN154" />
+              </div>
+              <div class="form-group">
+                <label>วันที่ลงสำรวจ / สัมภาษณ์ *</label>
+                <input type="date" id="resp-survey-date" required value="2026-10-27" />
+              </div>
+              <div class="form-group">
+                <label>กลุ่มเป้าหมาย / แท็บข้อมูล *</label>
+                <select id="resp-target-group" required onchange="toggleOtherInput(this, 'resp-target-other-wrap')">
+                  <option value="กลุ่มใหม่">กลุ่มใหม่ (เก็บปัสสาวะ)</option>
+                  <option value="ผู้ประกอบอาชีพ">ผู้ประกอบอาชีพ (เก็บปัสสาวะ)</option>
+                  <option value="กลุ่มเดิม 68">กลุ่มเดิม 68 (เก็บปัสสาวะ)</option>
+                  <option value="ประชาชนทั่วไป (แท็บประเมินเชียงใหม่ 69)">ประชาชนทั่วไป (แท็บประเมินเชียงใหม่ 69)</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="resp-target-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="resp-target-other" placeholder="ระบุกลุ่มเป้าหมายอื่นๆ..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>เกณฑ์คัดกรอง (Cut point / หมายเหตุ)</label>
+                <input type="text" id="resp-cut-point" placeholder="เช่น ตอบข้อ 2, ความเสี่ยงปานกลาง, มีอาการ" />
+              </div>
+            </div>
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>เชื่อมโยงจุดบ่อน้ำที่ใช้ประจำ *</label>
+                <select id="resp-well-id" onchange="syncCoordinatesFromSelectedWell()">
+                  <option value="">-- เลือกจุดบ่อน้ำในหมู่บ้าน --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>รพ.สต. ที่รับผิดชอบ</label>
+                <select id="resp-hc" onchange="toggleOtherInput(this, 'resp-hc-other-wrap')">
+                  <option value="รพ.สต.บ้านท่าตอน">รพ.สต.บ้านท่าตอน</option>
+                  <option value="รพ.สต.บ้านท่ามะแกง">รพ.สต.บ้านท่ามะแกง</option>
+                  <option value="รพ.สต.บ้านเมืองงาม">รพ.สต.บ้านเมืองงาม</option>
+                  <option value="รพ.สต.บ้านแม่เมืองน้อย">รพ.สต.บ้านแม่เมืองน้อย</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="resp-hc-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="resp-hc-other" placeholder="ระบุชื่อ รพ.สต. หรือหน่วยงาน..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>ชื่อ - สกุล ผู้สัมภาษณ์ / ผู้สำรวจ</label>
+                <input type="text" id="resp-interviewer" placeholder="ระบุชื่อ-สกุล เจ้าหน้าที่ผู้สัมภาษณ์" value="เจ้าหน้าที่สาธารณสุข อ.แม่อาย" />
+              </div>
+            </div>
+          </div>
+
+          <!-- ส่วนที่ 1: ข้อมูลทั่วไปส่วนบุคคล (ข้อ 1 - 7) -->
+          <div class="form-section-box" id="as01-sec-1">
+            <h4>ส่วนที่ 1: ข้อมูลทั่วไปส่วนบุคคล (ครบตามแบบฟอร์ม Env-As-01 ข้อ 1 - 7)</h4>
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label>1. ชื่อ - นามสกุล *</label>
+                <input type="text" id="resp-name" required placeholder="ระบุคำนำหน้า ชื่อ-นามสกุล" />
+              </div>
+              <div class="form-group">
+                <label>อายุ (ปี)</label>
+                <input type="number" id="resp-age" placeholder="เช่น 54" />
+              </div>
+              <div class="form-group">
+                <label>2. เพศ</label>
+                <select id="resp-gender" onchange="toggleOtherInput(this, 'resp-gender-other-wrap')">
+                  <option value="1) ชาย">1. ชาย</option>
+                  <option value="2) หญิง">2. หญิง</option>
+                  <option value="OTHER">อื่นๆ (ระบุ...)</option>
+                </select>
+                <div id="resp-gender-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="resp-gender-other" placeholder="ระบุเพศ..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>3. เลขประจำตัวประชาชน (13 หลัก)</label>
+                <input type="text" id="resp-cid" maxlength="17" placeholder="กรอกเลข 13 หลัก" />
+                <label style="display:flex; align-items:center; gap:6px; margin-top:4px; font-weight:500; font-size:12px; cursor:pointer;">
+                  <input type="checkbox" id="resp-no-cid" onchange="if(this.checked){document.getElementById('resp-cid').value='ไม่มีเลข 13 หลัก';}" style="width:14px;height:14px;" />
+                  ผู้อาศัย (ไม่มีเลข 13 หลัก)
+                </label>
+              </div>
+            </div>
+
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label>4. ปัจจุบันอยู่บ้านเลขที่</label>
+                <input type="text" id="resp-house" placeholder="เช่น 94 หรือ 62/1" />
+              </div>
+              <div class="form-group">
+                <label>หมู่ที่ *</label>
+                <input type="number" id="resp-moo" required placeholder="เช่น 6" />
+              </div>
+              <div class="form-group">
+                <label>ตำบล *</label>
+                <select id="resp-tambon" required onchange="toggleOtherInput(this, 'resp-tambon-other-wrap')">
+                  <option value="ท่าตอน">ท่าตอน</option>
+                  <option value="แม่นาวาง">แม่นาวาง</option>
+                  <option value="แม่อาย">แม่อาย</option>
+                  <option value="แม่สาว">แม่สาว</option>
+                  <option value="สันต้นหมื้อ">สันต้นหมื้อ</option>
+                  <option value="บ้านหลวง">บ้านหลวง</option>
+                  <option value="มะลิกา">มะลิกา</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="resp-tambon-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="resp-tambon-other" placeholder="ระบุตำบลอื่นๆ..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>อำเภอ / จังหวัด</label>
+                <input type="text" id="resp-amphoe-prov" value="แม่อาย / เชียงใหม่" />
+              </div>
+            </div>
+
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label>5. สถานภาพสมรส</label>
+                <select id="resp-marital" onchange="toggleOtherInput(this, 'resp-marital-other-wrap')">
+                  <option value="1) โสด">1. โสด</option>
+                  <option value="2) คู่">2. คู่</option>
+                  <option value="3) หม้าย/หย่า/แยก">3. หม้าย/หย่า/แยก</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="resp-marital-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="resp-marital-other" placeholder="ระบุสถานภาพสมรสอื่นๆ..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>6. การศึกษาสูงสุด</label>
+                <select id="resp-edu" onchange="toggleOtherInput(this, 'resp-edu-other-wrap')">
+                  <option value="1) ไม่ได้เรียนหนังสือ">1. ไม่ได้เรียนหนังสือ</option>
+                  <option value="2) ประถมศึกษา">2. ประถมศึกษา</option>
+                  <option value="3) มัธยมศึกษา">3. มัธยมศึกษา</option>
+                  <option value="4) ปวช./ปวส.">4. ปวช./ปวส./อนุปริญญา</option>
+                  <option value="5) ปริญญาตรี">5. ปริญญาตรีหรือสูงกว่า</option>
+                  <option value="OTHER">6. อื่น ๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="resp-edu-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="resp-edu-other" placeholder="ระบุการศึกษาสูงสุดอื่นๆ..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>7. ท่านอยู่ในพื้นที่นี้มานานกี่ปี (ปี)</label>
+                <input type="text" id="resp-years-area" placeholder="เช่น 35" />
+              </div>
+              <div class="form-group">
+                <label style="color:#0369a1; font-weight:700;">8. ระยะเวลาที่สัมผัสสารหนู/แหล่งน้ำ (จำนวนปี) *</label>
+                <input type="number" step="0.5" min="0" id="resp-exposure-years" placeholder="ระบุจำนวนปีที่สัมผัส เช่น 10" style="border-color:#38bdf8; background:#f0f9ff; font-weight:600;" />
+              </div>
+            </div>
+
+            <div class="coord-picker-box compact-coord">
+              <div class="coord-header">
+                <span><i class="fa-solid fa-house-flag"></i> พิกัดบ้านพักอาศัย</span>
+                <div class="coord-actions">
+                  <button type="button" class="btn btn-sm btn-outline" onclick="useCurrentGpsForRespondent()">
+                    <i class="fa-solid fa-crosshairs"></i> ใช้พิกัด GPS ปัจจุบัน
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline" onclick="pickLocationOnMap('respondent')">
+                    <i class="fa-solid fa-map-pin"></i> จิ้มบนแผนที่
+                  </button>
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label>ละติจูด (Latitude)</label>
+                  <input type="number" step="any" id="resp-lat" required />
+                </div>
+                <div class="form-group">
+                  <label>ลองจิจูด (Longitude)</label>
+                  <input type="number" step="any" id="resp-lng" required />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ส่วนที่ 2: ข้อมูลความเสี่ยงจากการประกอบอาชีพ (ครบทั้ง 11 อาชีพ + อื่นๆ) -->
+          <div class="form-section-box" id="as01-sec-2">
+            <h4>ส่วนที่ 2: ข้อมูลความเสี่ยงจากการประกอบอาชีพ (ข้อ 1 - 3 ครบตามแบบฟอร์มแม่อาย)</h4>
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>1. ปัจจุบัน ท่านทำงานที่เสี่ยงต่อการสัมผัส "สารหนู" ดังต่อไปนี้หรือไม่</label>
+                <select id="resp-job-flag">
+                  <option value="ไม่ใช่">ไม่ใช่ (ข้ามไปตอบในส่วนที่ 3)</option>
+                  <option value="ใช่">ใช่ (เลือกได้มากกว่า 1 อาชีพ และตอบข้อ 2)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>1.1 อาชีพที่เสี่ยงต่อการสัมผัสสารหนู (สรุปรายการที่เลือก หรือพิมพ์เพิ่มได้)</label>
+                <input type="text" id="resp-job-type" placeholder="คลิกเลือกจากกล่องด้านล่าง หรือพิมพ์ระบุเพิ่มเติม..." />
+              </div>
+            </div>
+
+            <div style="margin-bottom:12px;">
+              <label style="font-size:12.5px; font-weight:600; color:#334155; display:block; margin-bottom:6px;">คลิกเลือกอาชีพที่เสี่ยง (เลือกได้มากกว่า 1 ข้อ):</label>
+              <div class="check-grid-3">
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="1) ล่องแพนำเที่ยว/เรือโดยสาร" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 1) ล่องแพนำเที่ยว/เรือโดยสาร</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="2) ร้านค้าริมน้ำ" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 2) ร้านค้าริมน้ำ</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="3) เกษตรกร" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 3) เกษตรกร</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="4) ประมง/เลี้ยงสัตว์น้ำ" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 4) ประมง/เลี้ยงสัตว์น้ำ</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="5) ควาญช้าง" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 5) ควาญช้าง</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="6) รับจ้างฉีดพ่นสารกำจัดศัตรูพืช" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 6) รับจ้างฉีดพ่นสารกำจัดศัตรูพืช</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="7) คัดแยกขยะอิเล็กทรอนิกส์" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 7) คัดแยกขยะอิเล็กทรอนิกส์</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="8) ผลิตเฟอร์นิเจอร์ไม้" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 8) ผลิตเฟอร์นิเจอร์ไม้</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="9) นักเรียน" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 9) นักเรียน</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="10) รีสอร์ท" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 10) รีสอร์ท</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="11) ธุรกิจท่องเที่ยว เช่น Home Stay ฯลฯ" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> 11) ธุรกิจท่องเที่ยว เช่น Home Stay ฯลฯ</label>
+                <label class="check-card"><input type="checkbox" class="as01-occ-chk" value="อื่นๆ" onchange="syncAs01Checkboxes('as01-occ-chk','resp-job-type','resp-job-flag')" /> อื่นๆ (โปรดระบุในช่องด้านบน)</label>
+              </div>
+            </div>
+
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>2.1 ลักษณะการทำงาน (โปรดระบุรายละเอียด)</label>
+                <input type="text" id="resp-job-detail" placeholder="เช่น ทำนา ทำสวนติดแม่น้ำกก, ดูดทราย, ขับเรือ" />
+              </div>
+              <div class="form-group">
+                <label>2.2 (1) ระยะเวลาการทำงาน (กี่ปี / กี่เดือน)</label>
+                <input type="text" id="resp-job-duration" placeholder="เช่น 10 ปี 6 เดือน" />
+              </div>
+              <div class="form-group">
+                <label>2.2 (2) จำนวนชั่วโมงการทำงาน (กี่ชั่วโมง/วัน)</label>
+                <input type="text" id="resp-job-hours" placeholder="เช่น 8" />
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>3.1 ระยะเวลาการเล่นหรือว่ายน้ำในแม่น้ำกก (กี่ปี / กี่เดือน)</label>
+                <input type="text" id="resp-swim-duration" placeholder="เช่น - หรือ 5 ปี" />
+              </div>
+              <div class="form-group">
+                <label>3.2 จำนวนชั่วโมงในการเล่นหรือว่ายน้ำ (กี่ชั่วโมง/วัน)</label>
+                <input type="text" id="resp-swim-hours" placeholder="เช่น - หรือ 1" />
+              </div>
+            </div>
+          </div>
+
+          <!-- ส่วนที่ 3: ข้อมูลสุขภาพเบื้องต้น (ครบทั้งโรคประจำตัว 8 ข้อ และอาการแสดง 5 ข้อ) -->
+          <div class="form-section-box" id="as01-sec-3">
+            <h4>ส่วนที่ 3: ข้อมูลสุขภาพเบื้องต้น (ครบตามแบบฟอร์ม Env-As-01 ข้อ 1 และ ข้อ 2)</h4>
+            
+            <!-- ข้อ 1: โรคประจำตัว -->
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>1. ปัจจุบันท่านมีโรคประจำตัวที่ได้รับการวินิจฉัยโดยแพทย์หรือไม่</label>
+                <select id="resp-disease-flag">
+                  <option value="ไม่มี">1. ไม่มี (ข้ามไปตอบในข้อที่ 2)</option>
+                  <option value="มี">2. มี โปรดระบุ (ตอบได้มากกว่า 1 ข้อ)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>1.1 โรคประจำตัวที่ระบุ (สรุปรายการโรคประจำตัว / ตำแหน่งมะเร็ง / โรคอื่นๆ)</label>
+                <input type="text" id="resp-diseases" placeholder="คลิกเลือกโรคด้านล่าง หรือพิมพ์ระบุตำแหน่งมะเร็ง / โรคอื่นๆ..." />
+              </div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <label style="font-size:12.5px; font-weight:600; color:#334155; display:block; margin-bottom:6px;">คลิกเลือกโรคประจำตัว (ตอบได้มากกว่า 1 ข้อ):</label>
+              <div class="check-grid-4 form-grid-4">
+                <label class="check-card"><input type="checkbox" class="as01-dis-chk" value="1) ความดันโลหิตสูง" onchange="syncAs01Checkboxes('as01-dis-chk','resp-diseases','resp-disease-flag')" /> 1. ความดันโลหิตสูง</label>
+                <label class="check-card"><input type="checkbox" class="as01-dis-chk" value="2) เบาหวาน" onchange="syncAs01Checkboxes('as01-dis-chk','resp-diseases','resp-disease-flag')" /> 2. เบาหวาน</label>
+                <label class="check-card"><input type="checkbox" class="as01-dis-chk" value="3) โรคไต" onchange="syncAs01Checkboxes('as01-dis-chk','resp-diseases','resp-disease-flag')" /> 3. โรคไต</label>
+                <label class="check-card"><input type="checkbox" class="as01-dis-chk" value="4) โรคหัวใจ" onchange="syncAs01Checkboxes('as01-dis-chk','resp-diseases','resp-disease-flag')" /> 4. โรคหัวใจ</label>
+                <label class="check-card"><input type="checkbox" class="as01-dis-chk" value="5) โรคระบบประสาท" onchange="syncAs01Checkboxes('as01-dis-chk','resp-diseases','resp-disease-flag')" /> 5. โรคระบบประสาท</label>
+                <label class="check-card"><input type="checkbox" class="as01-dis-chk" value="6) โรคผิวหนัง" onchange="syncAs01Checkboxes('as01-dis-chk','resp-diseases','resp-disease-flag')" /> 6. โรคผิวหนัง</label>
+                <label class="check-card"><input type="checkbox" class="as01-dis-chk" value="7) โรคมะเร็ง" onchange="syncAs01Checkboxes('as01-dis-chk','resp-diseases','resp-disease-flag')" /> 7. โรคมะเร็ง (ระบุตำแหน่ง)</label>
+                <label class="check-card"><input type="checkbox" class="as01-dis-chk" value="8) โรคอื่นๆ" onchange="syncAs01Checkboxes('as01-dis-chk','resp-diseases','resp-disease-flag')" /> 8. โรคอื่นๆ (โปรดระบุ)</label>
+              </div>
+            </div>
+
+            <hr style="margin:12px 0; border:none; border-top:1px dashed #cbd5e1;" />
+
+            <!-- ข้อ 2: อาการแสดง 3 เดือนที่ผ่านมา -->
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>2. ในระยะเวลา 3 เดือนที่ผ่านมา ท่านหรือสมาชิกในครอบครัวมีอาการที่เกี่ยวข้องกับการสัมผัสสารหนูหรือไม่</label>
+                <select id="resp-symptom-flag">
+                  <option value="ไม่มี">ไม่มี (ข้ามไปตอบในส่วนที่ 4)</option>
+                  <option value="มี">มี (ตอบได้มากกว่า 1 ข้อ)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>2.1 อาการและอาการแสดงที่พบ (สรุปรายการอาการ หรือพิมพ์เพิ่มเติม)</label>
+                <input type="text" id="resp-symptoms" placeholder="คลิกเลือกอาการด้านล่าง หรือพิมพ์ระบุเพิ่มเติม..." />
+              </div>
+            </div>
+
+            <div>
+              <label style="font-size:12.5px; font-weight:600; color:#334155; display:block; margin-bottom:6px;">คลิกเลือกอาการและอาการแสดงที่เกี่ยวข้องกับสารหนู (ข้อ 1 - 5):</label>
+              <div class="check-grid-2">
+                <label class="check-card"><input type="checkbox" class="as01-sym-chk" value="1. เพ้อ ชัก" onchange="syncAs01Checkboxes('as01-sym-chk','resp-symptoms','resp-symptom-flag')" /> 1. เพ้อ ชัก</label>
+                <label class="check-card"><input type="checkbox" class="as01-sym-chk" value="2. ปวดท้องรุนแรง คลื่นไส้อาเจียน" onchange="syncAs01Checkboxes('as01-sym-chk','resp-symptoms','resp-symptom-flag')" /> 2. ปวดท้องรุนแรง คลื่นไส้อาเจียน</label>
+                <label class="check-card"><input type="checkbox" class="as01-sym-chk" value="3. ชาปลายมือปลายเท้า ร่วมกับอาการอ่อนแรง" onchange="syncAs01Checkboxes('as01-sym-chk','resp-symptoms','resp-symptom-flag')" /> 3. ชาปลายมือปลายเท้า ร่วมกับอาการอ่อนแรง</label>
+                <label class="check-card"><input type="checkbox" class="as01-sym-chk" value="4. สีผิวหนังผิดปกติ สีเข้มขึ้น กระดำกระด่างเป็นหย่อมๆ สลับกับจุดขาว" onchange="syncAs01Checkboxes('as01-sym-chk','resp-symptoms','resp-symptom-flag')" /> 4. สีผิวหนังผิดปกติ สีเข้มขึ้น กระดำกระด่างเป็นหย่อมๆ สลับกับจุดขาว</label>
+                <label class="check-card" style="grid-column: span 2;"><input type="checkbox" class="as01-sym-chk" value="5. ผื่นหนา หรือตุ่มคล้ายตาปลา ที่ผิวหนังบริเวณฝ่ามือหรือฝ่าเท้าทั้งสองข้าง" onchange="syncAs01Checkboxes('as01-sym-chk','resp-symptoms','resp-symptom-flag')" /> 5. ผื่นหนา หรือตุ่มคล้ายตาปลา ที่ผิวหนังบริเวณฝ่ามือหรือฝ่าเท้าทั้งสองข้าง</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- ส่วนที่ 4: การประเมินความเสี่ยงการสัมผัสสารหนูจากสิ่งแวดล้อม (11 ข้อ คำนวณอัตโนมัติ เต็ม 30.5 + ตารางสรุปผลและมาตรการ) -->
+          <div class="form-section-box" id="as01-sec-4">
+            <h4>ส่วนที่ 4: การประเมินความเสี่ยงการสัมผัสสารหนูจากสิ่งแวดล้อม (ข้อมูลภายในระยะเวลา 1 ปี - คะแนนเต็ม 30.5 คะแนน)</h4>
+            <div class="env-questions-grid">
+              <label class="env-q-item"><input type="checkbox" id="env-q1" onchange="recalcScore()" /> <span><b>ข้อ 1 (ค่าน้ำหนัก A = 5):</b> ท่านดื่มน้ำหรือนำน้ำจากแม่น้ำที่ปนเปื้อนฯ มาประกอบอาหาร หรือไม่</span></label>
+              <label class="env-q-item"><input type="checkbox" id="env-q2" onchange="recalcScore()" /> <span><b>ข้อ 2 (ค่าน้ำหนัก A = 5):</b> ท่านดื่มน้ำหรือนำน้ำจากบ่อน้ำตื้น/บ่อบาดาล ในบริเวณบ้านของท่านมาประกอบอาหาร หรือไม่</span></label>
+              <label class="env-q-item"><input type="checkbox" id="env-q3" onchange="recalcScore()" /> <span><b>ข้อ 3 (ค่าน้ำหนัก A = 5):</b> ท่านใช้น้ำจากแม่น้ำที่ปนเปื้อนฯ โดยตรง มาอาบ หรือ ล้างหน้า แปรงฟัน หรือล้างผักผลไม้ หรือไม่</span></label>
+              <label class="env-q-item"><input type="checkbox" id="env-q4" onchange="recalcScore()" /> <span><b>ข้อ 4 (ค่าน้ำหนัก A = 1.5):</b> ท่านเล่นหรือว่ายน้ำในแม่น้ำที่ปนเปื้อนฯ เป็นประจำ อย่างน้อยสัปดาห์ละ 1 ครั้ง</span></label>
+              <label class="env-q-item"><input type="checkbox" id="env-q5" onchange="recalcScore()" /> <span><b>ข้อ 5 (ค่าน้ำหนัก A = 1.5):</b> ท่านทำงานที่มีโอกาสสัมผัสน้ำจากแม่น้ำที่ปนเปื้อนฯ เช่น ขับเรือโดยสาร ทำประมง แม่ค้า เป็นต้น หรือไม่</span></label>
+              <label class="env-q-item"><input type="checkbox" id="env-q6" onchange="recalcScore()" /> <span><b>ข้อ 6 (ค่าน้ำหนัก A = 1):</b> ที่พักอาศัยของท่านอยู่ในรัศมี 1 กิโลเมตรจากแม่น้ำที่ปนเปื้อนฯ หรือไม่</span></label>
+              <label class="env-q-item"><input type="checkbox" id="env-q7" onchange="recalcScore()" /> <span><b>ข้อ 7 (ค่าน้ำหนัก A = 1):</b> ท่านพักอาศัยอยู่ในพื้นที่มานานมากกว่า 5 ปี หรือไม่</span></label>
+              <label class="env-q-item"><input type="checkbox" id="env-q8" onchange="recalcScore()" /> <span><b>ข้อ 8 (ค่าน้ำหนัก A = 4):</b> ท่านมีอาการที่เข้าได้กับพิษสารหนู ภายหลังจากท่านสัมผัสน้ำจากแม่น้ำที่ปนเปื้อนฯ หรือไม่</span></label>
+              <label class="env-q-item"><input type="checkbox" id="env-q9" onchange="recalcScore()" /> <span><b>ข้อ 9 (ค่าน้ำหนัก A = 4):</b> ท่านหรือสมาชิกในครอบครัวมีอาการ และหรือ อาการแสดง ที่เข้าได้กับโรคสารหนู</span></label>
+              <label class="env-q-item"><input type="checkbox" id="env-q10" onchange="recalcScore()" /> <span><b>ข้อ 10 (ค่าน้ำหนัก A = 1):</b> เคยมีน้ำจากแม่น้ำที่ปนเปื้อนฯ หลากเข้าไปในบ้านหรือที่พักของท่านหรือไม่ ในระยะ 5 ปีที่ผ่านมา</span></label>
+              <label class="env-q-item" style="grid-column: span 2;"><input type="checkbox" id="env-q11" onchange="recalcScore()" /> <span><b>ข้อ 11 (ค่าน้ำหนัก A = 1.5):</b> โดยปกติท่านรับประทานพืช/ผักที่ปลูกในบริเวณแม่น้ำที่ปนเปื้อนฯ เป็นประจำ อย่างน้อยสัปดาห์ละ 1 ครั้งหรือไม่</span></label>
+            </div>
+
+            <div class="score-summary-banner">
+              <div>
+                <span>สรุปคะแนนประเมินความเสี่ยง (เต็ม 30.5): </span>
+                <strong id="calc-total-score" class="score-num">0</strong> คะแนน
+              </div>
+              <div>
+                <span>สรุปผลการประเมินความเสี่ยง: </span>
+                <span id="calc-risk-badge" class="risk-badge risk-low">ต่ำ (คะแนน 0 - &lt;10)</span>
+              </div>
+              <div id="calc-measure-text" style="font-size:12px; color:#bae6fd;">
+                มาตรการ: สื่อสารความเสี่ยง ให้สุขศึกษา ติดตามเฝ้าระวังทุก 1 ปี
+              </div>
+            </div>
+
+            <!-- ตารางเกณฑ์สรุปผลการประเมินความเสี่ยงและมาตรการตามแบบฟอร์ม PDF -->
+            <table class="risk-criteria-table">
+              <thead>
+                <tr>
+                  <th style="width:28%;">สรุปผลการประเมินความเสี่ยง</th>
+                  <th style="width:16%;">ระดับความเสี่ยง</th>
+                  <th>มาตรการ / แนวทางการดูแลติดตาม</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr id="criteria-row-low">
+                  <td><b>คะแนน 0 - &lt; 10</b><br/>กลุ่มที่มีโอกาสสัมผัสสารหนูต่ำ</td>
+                  <td><span class="risk-badge risk-low">ต่ำ</span></td>
+                  <td>1. สื่อสารความเสี่ยง สร้างการรับรู้ และให้สุขศึกษาในการป้องกันตนเองจากการสัมผัสสารหนู<br/>2. ติดตามเฝ้าระวังและประเมินความเสี่ยงซ้ำทุก 1 ปี</td>
+                </tr>
+                <tr id="criteria-row-med">
+                  <td><b>คะแนน 10 - 20</b><br/>กลุ่มที่มีโอกาสสัมผัสสารหนูปานกลาง</td>
+                  <td><span class="risk-badge risk-med">ปานกลาง</span></td>
+                  <td>1. สื่อสารความเสี่ยง สร้างการรับรู้ และให้สุขศึกษาในการป้องกันตนเอง<br/>2. ซักประวัติเพิ่มเติมตามแบบ Env-As-02 และพิจารณาตรวจสารหนูในปัสสาวะ / เฝ้าระวังอาการทุก 6 เดือน</td>
+                </tr>
+                <tr id="criteria-row-high">
+                  <td><b>คะแนน &gt; 20</b><br/>กลุ่มที่มีโอกาสสัมผัสสารหนูสูง</td>
+                  <td><span class="risk-badge risk-high">สูง / มาก</span></td>
+                  <td>1. ส่งต่อพบแพทย์เพื่อตรวจร่างกายและซักประวัติตามแบบ Env-As-02<br/>2. เก็บตัวอย่างปัสสาวะส่งตรวจวิเคราะห์ปริมาณสารหนูทางห้องปฏิบัติการ และติดตามดูแลต่อเนื่อง</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ส่วนที่ 5: แบบคัดกรองสุขภาพจิต 2Q (โรคซึมเศร้า 2 คำถาม) -->
+          <div class="form-section-box" id="as01-sec-2q" style="background:#f5f3ff; border-color:#c4b5fd; margin-top:14px;">
+            <h4 style="color:#6d28d9;"><i class="fa-solid fa-brain"></i> ส่วนเพิ่มเติม: การคัดกรองสุขภาพจิต 2Q (แบบคัดกรองโรคซึมเศร้า 2 คำถาม)</h4>
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>ข้อ 1. ใน 2 สัปดาห์ที่ผ่านมา รวมวันนี้ ท่านรู้สึกหดหู่ เศร้า หรือท้อแท้สิ้นหวัง หรือไม่</label>
+                <select id="resp-q2-1" onchange="recalcModalAs01_2Q()">
+                  <option value="ไม่ใช่">ไม่ใช่ (ปกติ = 0)</option>
+                  <option value="ใช่">ใช่ (มีอาการ = 1)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>ข้อ 2. ใน 2 สัปดาห์ที่ผ่านมา รวมวันนี้ ท่านรู้สึกเบื่อ ทำอะไรก็ไม่เพลิดเพลิน หรือไม่</label>
+                <select id="resp-q2-2" onchange="recalcModalAs01_2Q()">
+                  <option value="ไม่ใช่">ไม่ใช่ (ปกติ = 0)</option>
+                  <option value="ใช่">ใช่ (มีอาการ = 1)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>สรุปผลการคัดกรอง 2Q</label>
+                <input type="text" id="resp-status-2q" readonly value="ยังไม่คัดกรอง" style="background:#fff; font-weight:700; color:#4c1d95;" />
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="scrollToModalSection('resp-modal-body', 'as01-sec-header')">&uarr; ขึ้นบนสุด</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="scrollToModalSection('resp-modal-body', 'as01-sec-4')">&darr; ไปส่วนที่ 4 & 2Q</button>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-outline" onclick="closeRespondentModal()">ยกเลิก</button>
+            <button type="submit" class="btn btn-success"><i class="fa-solid fa-floppy-disk"></i> บันทึกแบบคัดกรอง Env-As-01</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 3: FORM ENV-AS-02 (PRE-BIOLOGICAL SAMPLING QUESTIONNAIRE) ==================== -->
+  <div id="env-as02-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-header">
+        <h3 id="as02-modal-title"><i class="fa-solid fa-vial-circle-check"></i> แบบฟอร์ม Env-As-02: แบบซักประวัติการสัมผัสสารหนูจากสิ่งแวดล้อม (ก่อนเก็บตัวอย่างทางชีวภาพ)</h3>
+        <button type="button" class="btn-close" onclick="closeEnvAs02Modal()">&times;</button>
+      </div>
+      <!-- แถบปุ่มกดข้ามไปยังส่วนที่ 1, 2, 3 (ข้อ 1-5), 3 (ข้อ 6-11) -->
+      <div class="modal-section-nav">
+        <span><i class="fa-solid fa-angles-down"></i> ข้ามไปยังส่วนที่ต้องการ:</span>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('as02-modal-body', 'as02-sec-header')">ส่วนหัว & ดึงข้อมูล</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('as02-modal-body', 'as02-sec-1')">ส่วนที่ 1: ข้อมูลทั่วไป (ข้อ 1-8)</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('as02-modal-body', 'as02-sec-2')">ส่วนที่ 2: อาชีพเสี่ยง</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('as02-modal-body', 'as02-sec-3a')">ส่วนที่ 3 (ข้อ 1-5): โรค/สมุนไพร/บุหรี่/อาหารทะเล</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('as02-modal-body', 'as02-sec-3b')">ส่วนที่ 3 (ข้อ 6-11): น้ำดื่ม/น้ำใช้/อาหาร/ผู้สัมภาษณ์</button>
+      </div>
+      <form id="env-as02-form" onsubmit="handleSaveEnvAs02(event)">
+        <div class="modal-body" id="as02-modal-body">
+          <input type="hidden" id="as02-id" />
+
+          <!-- ดึงข้อมูลจากผู้รับการประเมิน Env-As-01 อัตโนมัติ -->
+          <div class="form-section-box highlight-section" id="as02-sec-header">
+            <h4><i class="fa-solid fa-user-check"></i> เลขที่แบบฟอร์ม Env-As-02, วันที่ลงสำรวจ & ดึงข้อมูลจากทะเบียน Env-As-01 (244 / 101 ราย)</h4>
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label>เลขที่แบบฟอร์ม Env-As-02 *</label>
+                <input type="text" id="as02-form-no" required placeholder="เช่น 69-0001" />
+              </div>
+              <div class="form-group">
+                <label>วันที่ลงสำรวจ / สัมภาษณ์ *</label>
+                <input type="date" id="as02-date" value="2026-10-27" />
+              </div>
+              <div class="form-group">
+                <label>ดึงข้อมูลจากรายชื่อในระบบ</label>
+                <select id="as02-fill-from-resp" onchange="autofillAs02FromRespondent(this.value)">
+                  <option value="">-- เลือกเพื่อดึงข้อมูลส่วนบุคคลอัตโนมัติ --</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>จุดบ่อน้ำที่เชื่อมโยง</label>
+                <input type="text" id="as02-well-id" placeholder="เช่น W001-P1" />
+              </div>
+            </div>
+          </div>
+
+          <!-- ส่วนที่ 1: ข้อมูลทั่วไป (ข้อ 1 - 8 ครบตาม PDF) -->
+          <div class="form-section-box" id="as02-sec-1">
+            <h4>ส่วนที่ 1: ข้อมูลทั่วไป (ครบตามแบบฟอร์ม Env-As-02 ข้อ 1 - 8)</h4>
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label>1. ชื่อ - นามสกุล *</label>
+                <input type="text" id="as02-name" required placeholder="ระบุคำนำหน้า ชื่อ-นามสกุล" />
+              </div>
+              <div class="form-group">
+                <label>อายุ (ปี)</label>
+                <input type="number" id="as02-age" placeholder="เช่น 54" />
+              </div>
+              <div class="form-group">
+                <label>เบอร์โทรศัพท์มือถือ</label>
+                <input type="text" id="as02-phone" placeholder="08X-XXXXXXX" />
+              </div>
+              <div class="form-group">
+                <label>3. เลขประจำตัวประชาชน (13 หลัก)</label>
+                <input type="text" id="as02-cid" maxlength="17" />
+              </div>
+            </div>
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label>2. เพศ</label>
+                <select id="as02-gender" onchange="toggleOtherInput(this, 'as02-gender-other-wrap')">
+                  <option value="1) ชาย">1. ชาย</option>
+                  <option value="2) หญิง">2. หญิง</option>
+                  <option value="OTHER">อื่นๆ (ระบุ...)</option>
+                </select>
+                <div id="as02-gender-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-gender-other" placeholder="ระบุเพศ..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>น้ำหนัก (กิโลกรัม)</label>
+                <input type="number" step="0.1" id="as02-weight" placeholder="เช่น 58" />
+              </div>
+              <div class="form-group">
+                <label>ส่วนสูง (เซนติเมตร)</label>
+                <input type="number" step="0.1" id="as02-height" placeholder="เช่น 165" />
+              </div>
+              <div class="form-group">
+                <label>4. บ้านเลขที่ / หมู่ที่ / ตำบล</label>
+                <div style="display:flex; gap:4px;">
+                  <input type="text" id="as02-house" placeholder="บ้านเลขที่" style="width:35%;" />
+                  <input type="number" id="as02-moo" placeholder="หมู่" style="width:25%;" />
+                  <select id="as02-tambon" style="width:40%;" onchange="toggleOtherInput(this, 'as02-tambon-other-wrap')">
+                    <option value="ท่าตอน">ท่าตอน</option>
+                    <option value="แม่นาวาง">แม่นาวาง</option>
+                    <option value="แม่อาย">แม่อาย</option>
+                    <option value="OTHER">อื่นๆ...</option>
+                  </select>
+                </div>
+                <div id="as02-tambon-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-tambon-other" placeholder="ระบุตำบล/อำเภอ/จังหวัด..." />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label>5. สถานภาพสมรส</label>
+                <select id="as02-marital" onchange="toggleOtherInput(this, 'as02-marital-other-wrap')">
+                  <option value="1) โสด">1. โสด</option>
+                  <option value="2) คู่">2. คู่</option>
+                  <option value="3) หม้าย/หย่า/แยก">3. หม้าย / หย่า / แยก</option>
+                  <option value="OTHER">อื่นๆ (ระบุ...)</option>
+                </select>
+                <div id="as02-marital-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-marital-other" placeholder="ระบุสถานภาพสมรส..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>6. การศึกษาสูงสุด</label>
+                <select id="as02-edu" onchange="toggleOtherInput(this, 'as02-edu-other-wrap')">
+                  <option value="1) ไม่ได้เรียนหนังสือ">1. ไม่ได้เรียนหนังสือ</option>
+                  <option value="2) ประถมศึกษา">2. ประถมศึกษา</option>
+                  <option value="3) มัธยมศึกษา">3. มัธยมศึกษา</option>
+                  <option value="4) ปวช./ปวส.">4. ปวช./ปวส./อนุปริญญา</option>
+                  <option value="5) ปริญญาตรี">5. ปริญญาตรีหรือสูงกว่า</option>
+                  <option value="OTHER">6. อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="as02-edu-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-edu-other" placeholder="ระบุการศึกษาสูงสุด..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>7. อยู่ในพื้นที่นาน (ปี) & 7.1 อยู่บ้านวันละ (ชม./วัน)</label>
+                <div style="display:flex; gap:6px;">
+                  <input type="number" id="as02-years" placeholder="อยู่ในพื้นที่ (ปี)" />
+                  <input type="number" id="as02-hours-home" placeholder="ชม./วัน" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label style="color:#0369a1; font-weight:700;">ระยะเวลาที่สัมผัสสารหนู/แหล่งน้ำ (จำนวนปี) *</label>
+                <input type="number" step="0.5" min="0" id="as02-exposure-years" placeholder="ระบุจำนวนปีที่สัมผัส เช่น 10" style="border-color:#38bdf8; background:#f0f9ff; font-weight:600;" />
+              </div>
+            </div>
+
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>7.2 โดยปกติท่านต้องออกไปทำงานหรือทำธุระต่างอำเภอเป็นประจำหรือไม่</label>
+                <select id="as02-out-district">
+                  <option value="ไม่ใช่">ไม่ใช่</option>
+                  <option value="ใช่">ใช่ (ระบุจำนวนวัน/สัปดาห์)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>จำนวนวันที่ออกไปต่างอำเภอ (วัน/สัปดาห์)</label>
+                <input type="number" id="as02-out-days" />
+              </div>
+              <div class="form-group">
+                <label>8. ที่พักอาศัยอยู่ในรัศมี 1 กิโลเมตรจากแม่น้ำที่ปนเปื้อนฯ หรือไม่</label>
+                <select id="as02-within-1km">
+                  <option value="1.ใช่">1. ใช่</option>
+                  <option value="2.ไม่ใช่">2. ไม่ใช่</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- ส่วนที่ 2: ข้อมูลความเสี่ยงจากการประกอบอาชีพ -->
+          <div class="form-section-box" id="as02-sec-2">
+            <h4>ส่วนที่ 2: ข้อมูลความเสี่ยงจากการประกอบอาชีพ (ครบตามแบบฟอร์ม Env-As-02)</h4>
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>1. ปัจจุบันทำงานที่เสี่ยงต่อการสัมผัสสารหนูหรือไม่</label>
+                <select id="as02-job-flag">
+                  <option value="ไม่ใช่">ไม่ใช่ (ข้ามไปตอบส่วนที่ 3)</option>
+                  <option value="ใช่">ใช่ (เลือกได้มากกว่า 1 อาชีพ)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>1.1 อาชีพที่เสี่ยง (1.ล่องแพ 2.ร้านค้าริมน้ำ 3.เกษตรกร 4.ประมง 5.ควาญช้าง 6.ฉีดพ่นยา 7.ขยะอิเล็กฯ 8.เฟอร์นิเจอร์ไม้ อื่นๆ)</label>
+                <input type="text" id="as02-job-type" placeholder="คลิกเลือกอาชีพด้านล่าง หรือพิมพ์ระบุ..." />
+              </div>
+              <div class="form-group">
+                <label>2.1 ลักษณะการทำงาน / 2.2 ระยะเวลา (ปี/เดือน) & ชั่วโมง/วัน</label>
+                <input type="text" id="as02-job-detail" placeholder="เช่น ทำนา 20 ปี วันละ 8 ชม." />
+              </div>
+            </div>
+            <div>
+              <div class="check-grid-4 form-grid-4">
+                <label class="check-card"><input type="checkbox" class="as02-occ-chk" value="1) ล่องแพนำเที่ยว/เรือโดยสาร" onchange="syncAs01Checkboxes('as02-occ-chk','as02-job-type','as02-job-flag')" /> 1. ล่องแพ/เรือโดยสาร</label>
+                <label class="check-card"><input type="checkbox" class="as02-occ-chk" value="2) ร้านค้าริมน้ำ" onchange="syncAs01Checkboxes('as02-occ-chk','as02-job-type','as02-job-flag')" /> 2. ร้านค้าริมน้ำ</label>
+                <label class="check-card"><input type="checkbox" class="as02-occ-chk" value="3) เกษตรกร" onchange="syncAs01Checkboxes('as02-occ-chk','as02-job-type','as02-job-flag')" /> 3. เกษตรกร</label>
+                <label class="check-card"><input type="checkbox" class="as02-occ-chk" value="4) ประมง/เลี้ยงสัตว์น้ำ" onchange="syncAs01Checkboxes('as02-occ-chk','as02-job-type','as02-job-flag')" /> 4. ประมง/เลี้ยงสัตว์น้ำ</label>
+                <label class="check-card"><input type="checkbox" class="as02-occ-chk" value="5) ควาญช้าง" onchange="syncAs01Checkboxes('as02-occ-chk','as02-job-type','as02-job-flag')" /> 5. ควาญช้าง</label>
+                <label class="check-card"><input type="checkbox" class="as02-occ-chk" value="6) รับจ้างฉีดพ่นสารกำจัดศัตรูพืช" onchange="syncAs01Checkboxes('as02-occ-chk','as02-job-type','as02-job-flag')" /> 6. ฉีดพ่นสารกำจัดศัตรูพืช</label>
+                <label class="check-card"><input type="checkbox" class="as02-occ-chk" value="7) คัดแยกขยะอิเล็กทรอนิกส์" onchange="syncAs01Checkboxes('as02-occ-chk','as02-job-type','as02-job-flag')" /> 7. คัดแยกขยะอิเล็กทรอนิกส์</label>
+                <label class="check-card"><input type="checkbox" class="as02-occ-chk" value="8) ผลิตเฟอร์นิเจอร์ไม้" onchange="syncAs01Checkboxes('as02-occ-chk','as02-job-type','as02-job-flag')" /> 8. ผลิตเฟอร์นิเจอร์ไม้</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- ส่วนที่ 3 (ข้อ 1 - 5): ข้อมูลสุขภาพ ยาสมุนไพร บุหรี่ สุรา และอาหารทะเล -->
+          <div class="form-section-box" id="as02-sec-3a">
+            <h4>ส่วนที่ 3: ข้อมูลสุขภาพและพฤติกรรมที่เกี่ยวข้องกับการสัมผัสสารหนู (ข้อ 1 - 5)</h4>
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>ข้อ 1. โรคประจำตัวที่ได้รับการวินิจฉัยโดยแพทย์ (1-8)</label>
+                <input type="text" id="as02-diseases" placeholder="เช่น ไม่มี หรือ 1. ความดันโลหิตสูง, 2. เบาหวาน" />
+              </div>
+              <div class="form-group">
+                <label>ข้อ 2. ใน 3 เดือนที่ผ่านมา กินยาสมุนไพร/ยาลูกกลอนหรือไม่</label>
+                <select id="as02-herb" onchange="toggleOtherInput(this, 'as02-herb-other-wrap')">
+                  <option value="5. ไม่ได้กิน">5. ไม่ได้กิน</option>
+                  <option value="1. มากที่สุด (สัปดาห์ละ 4-5 ครั้งขึ้นไป)">1. มากที่สุด = สัปดาห์ละ 4-5 ครั้งขึ้นไป</option>
+                  <option value="2. มาก (สัปดาห์ละ 2-3 ครั้ง)">2. มาก = สัปดาห์ละ 2-3 ครั้ง</option>
+                  <option value="3. ปานกลาง (สัปดาห์ละ 1 ครั้ง)">3. ปานกลาง = สัปดาห์ละ 1 ครั้ง</option>
+                  <option value="4. น้อย (เดือนละ 1-2 ครั้ง)">4. น้อย = เดือนละ 1-2 ครั้ง</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="as02-herb-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-herb-other" placeholder="ระบุความถี่การกินยาสมุนไพร..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>ระบุชื่อยาสมุนไพร & การผ่านการรับรองจาก อย. (1.ใช่ / 2.ไม่ใช่)</label>
+                <input type="text" id="as02-herb-name" placeholder="ระบุชื่อยา และ ผ่าน อย. (ใช่/ไม่ใช่)" />
+              </div>
+            </div>
+
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>ข้อ 3. ปัจจุบันสูบบุหรี่/ยาเส้นมวนเองหรือไม่</label>
+                <select id="as02-smoking" onchange="toggleOtherInput(this, 'as02-smoking-other-wrap')">
+                  <option value="1. ไม่สูบ">1. ไม่สูบ</option>
+                  <option value="2. สูบ">2. สูบ (ระบุชนิด/จำนวนมวนต่อวัน/จำนวนปี)</option>
+                  <option value="3. เคยสูบ แต่เลิกสูบแล้ว">3. เคยสูบ แต่เลิกสูบแล้ว (ระบุจำนวนปีที่เลิก)</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="as02-smoking-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-smoking-other" placeholder="ระบุรายละเอียดการสูบบุหรี่..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>รายละเอียดการสูบบุหรี่ (ชนิด / มวนต่อวัน / สูบนานกี่ปี / เลิกกี่ปี)</label>
+                <input type="text" id="as02-smoking-detail" placeholder="เช่น ยาเส้น 5 มวน/วัน นาน 15 ปี" />
+              </div>
+              <div class="form-group">
+                <label>ข้อ 4. ดื่มสุราหรือเครื่องดื่มแอลกอฮอล์หรือไม่</label>
+                <select id="as02-alcohol" onchange="toggleOtherInput(this, 'as02-alcohol-other-wrap')">
+                  <option value="1. ไม่ดื่ม">1. ไม่ดื่ม</option>
+                  <option value="2. ดื่มประจำทุกวัน">2. ดื่มประจำทุกวัน</option>
+                  <option value="3. ดื่มเป็นบางครั้ง ไม่ได้ดื่มประจำ">3. ดื่มเป็นบางครั้ง ไม่ได้ดื่มประจำ</option>
+                  <option value="OTHER">4. อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="as02-alcohol-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-alcohol-other" placeholder="ระบุรายละเอียดการดื่มสุราอื่นๆ..." />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>ข้อ 5. ในระยะ 1 เดือนที่ผ่านมา กินอาหารทะเลสดหรือแห้ง (กุ้ง หอย ปู ปลา หมึก) หรือไม่</label>
+                <select id="as02-seafood-freq">
+                  <option value="5. ไม่ได้กิน">5. ไม่ได้กิน</option>
+                  <option value="4. น้อย (เดือนละ 1-2 ครั้ง)">4. น้อย = เดือนละ 1-2 ครั้ง</option>
+                  <option value="3. ปานกลาง (สัปดาห์ละ 1 ครั้ง)">3. ปานกลาง = สัปดาห์ละ 1 ครั้ง</option>
+                  <option value="2. มาก (สัปดาห์ละ 2-3 ครั้ง)">2. มาก = สัปดาห์ละ 2-3 ครั้ง</option>
+                  <option value="1. มากที่สุด (สัปดาห์ละ 4-5 ครั้งขึ้นไป)">1. มากที่สุด = สัปดาห์ละ 4-5 ครั้งขึ้นไป</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="color:#b91c1c;">** และในช่วง 3 วันที่ผ่านมา ท่านได้กินอาหารทะเลสดหรือแห้ง หรือไม่ *</label>
+                <select id="as02-seafood-3days">
+                  <option value="2. ไม่ใช่">2. ไม่ใช่ (ไม่ได้กินใน 3 วันก่อนเก็บปัสสาวะ)</option>
+                  <option value="1. ใช่">1. ใช่ (กินอาหารทะเลภายใน 3 วันก่อนเก็บปัสสาวะ)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- ส่วนที่ 3 (ต่อ): ข้อ 6 - 11 แหล่งน้ำดื่ม น้ำใช้ การรับประทานอาหาร และน้ำหลาก -->
+          <div class="form-section-box" id="as02-sec-3b">
+            <h4>ส่วนที่ 3 (ข้อ 6 - 11): แหล่งน้ำดื่มประจำ, แหล่งน้ำใช้ในครอบครัว, ที่มาของอาหาร, การปลูกพืชผัก & ผู้สัมภาษณ์</h4>
+            
+            <!-- ข้อ 6: แหล่งน้ำดื่ม (ครบทั้ง 9 ข้อ พร้อมระบุจำนวนปี) -->
+            <div class="form-group">
+              <label>ข้อ 6. ท่านดื่มน้ำจากแหล่งใดเป็นประจำ และดื่มมานานกี่ปี (ตอบได้มากกว่า 1 ข้อ)</label>
+              <input type="text" id="as02-drink-sources" placeholder="คลิกเลือกแหล่งน้ำดื่มด้านล่าง หรือพิมพ์ระบุแหล่งน้ำและจำนวนปี..." style="margin-bottom:6px;" />
+              <div class="check-grid-3">
+                <label class="check-card"><input type="checkbox" class="as02-drk-chk" value="1. บ่อน้ำตื้น" onchange="syncAs01Checkboxes('as02-drk-chk','as02-drink-sources')" /> 1. บ่อน้ำตื้น</label>
+                <label class="check-card"><input type="checkbox" class="as02-drk-chk" value="2. บ่อน้ำตื้นมีเครื่องสูบ/มือโยก" onchange="syncAs01Checkboxes('as02-drk-chk','as02-drink-sources')" /> 2. บ่อน้ำตื้นสูบ/มือโยก</label>
+                <label class="check-card"><input type="checkbox" class="as02-drk-chk" value="3. บ่อบาดาล" onchange="syncAs01Checkboxes('as02-drk-chk','as02-drink-sources')" /> 3. บ่อบาดาล</label>
+                <label class="check-card"><input type="checkbox" class="as02-drk-chk" value="4. น้ำผิวดิน (แม่น้ำ/คลอง/บึง)" onchange="syncAs01Checkboxes('as02-drk-chk','as02-drink-sources')" /> 4. น้ำผิวดิน (แม่น้ำ/คลอง)</label>
+                <label class="check-card"><input type="checkbox" class="as02-drk-chk" value="5. ประปาหมู่บ้าน" onchange="syncAs01Checkboxes('as02-drk-chk','as02-drink-sources')" /> 5. ประปาหมู่บ้าน</label>
+                <label class="check-card"><input type="checkbox" class="as02-drk-chk" value="6. ประปาภูเขา" onchange="syncAs01Checkboxes('as02-drk-chk','as02-drink-sources')" /> 6. ประปาภูเขา</label>
+                <label class="check-card"><input type="checkbox" class="as02-drk-chk" value="7. น้ำฝน" onchange="syncAs01Checkboxes('as02-drk-chk','as02-drink-sources')" /> 7. น้ำฝน</label>
+                <label class="check-card"><input type="checkbox" class="as02-drk-chk" value="8.1 น้ำบรรจุขวด/ถัง (ผลิตในพื้นที่)" onchange="syncAs01Checkboxes('as02-drk-chk','as02-drink-sources')" /> 8.1 น้ำขวด/ถัง (ผลิตในพื้นที่)</label>
+                <label class="check-card"><input type="checkbox" class="as02-drk-chk" value="8.2 น้ำบรรจุขวด/ถัง (ผลิตนอกพื้นที่)" onchange="syncAs01Checkboxes('as02-drk-chk','as02-drink-sources')" /> 8.2 น้ำขวด/ถัง (นอกพื้นที่)</label>
+                <label class="check-card" style="grid-column: span 2;"><input type="checkbox" class="as02-drk-chk" value="9. ใช้น้ำจากแม่น้ำปนเปื้อนฯ มาประกอบอาหาร" onchange="syncAs01Checkboxes('as02-drk-chk','as02-drink-sources')" /> 9. ใช้น้ำจากแม่น้ำปนเปื้อนฯ มาประกอบอาหาร</label>
+                <div class="form-group" style="margin:0;">
+                  <input type="text" id="as02-drink-years" placeholder="ระบุจำนวนปีที่ดื่ม (เช่น 10 ปี)" />
+                </div>
+              </div>
+            </div>
+
+            <!-- ข้อ 7: แหล่งน้ำใช้ในครอบครัว (ครบทั้ง 9 ข้อ พร้อมระบุจำนวนปี) -->
+            <div class="form-group" style="margin-top:10px;">
+              <label>ข้อ 7. แหล่งน้ำใช้ในครอบครัว (อาบน้ำ ทำความสะอาด รดต้นไม้) มาจากแหล่งใดบ้าง และนานกี่ปี (ตอบได้มากกว่า 1 ข้อ)</label>
+              <input type="text" id="as02-use-sources" placeholder="คลิกเลือกแหล่งน้ำใช้ด้านล่าง หรือพิมพ์ระบุแหล่งน้ำและจำนวนปี..." style="margin-bottom:6px;" />
+              <div class="check-grid-3">
+                <label class="check-card"><input type="checkbox" class="as02-use-chk" value="1. บ่อน้ำตื้น" onchange="syncAs01Checkboxes('as02-use-chk','as02-use-sources')" /> 1. บ่อน้ำตื้น</label>
+                <label class="check-card"><input type="checkbox" class="as02-use-chk" value="2. บ่อน้ำตื้นมีเครื่องสูบ/มือโยก" onchange="syncAs01Checkboxes('as02-use-chk','as02-use-sources')" /> 2. บ่อน้ำตื้นสูบ/มือโยก</label>
+                <label class="check-card"><input type="checkbox" class="as02-use-chk" value="3. บ่อบาดาล" onchange="syncAs01Checkboxes('as02-use-chk','as02-use-sources')" /> 3. บ่อบาดาล</label>
+                <label class="check-card"><input type="checkbox" class="as02-use-chk" value="4. น้ำผิวดิน (แม่น้ำ/คลอง/บึง)" onchange="syncAs01Checkboxes('as02-use-chk','as02-use-sources')" /> 4. น้ำผิวดิน (แม่น้ำ/คลอง)</label>
+                <label class="check-card"><input type="checkbox" class="as02-use-chk" value="5. ประปาหมู่บ้าน" onchange="syncAs01Checkboxes('as02-use-chk','as02-use-sources')" /> 5. ประปาหมู่บ้าน</label>
+                <label class="check-card"><input type="checkbox" class="as02-use-chk" value="6. ประปาภูเขา" onchange="syncAs01Checkboxes('as02-use-chk','as02-use-sources')" /> 6. ประปาภูเขา</label>
+                <label class="check-card"><input type="checkbox" class="as02-use-chk" value="7. น้ำฝน" onchange="syncAs01Checkboxes('as02-use-chk','as02-use-sources')" /> 7. น้ำฝน</label>
+                <label class="check-card"><input type="checkbox" class="as02-use-chk" value="8.1 น้ำบรรจุขวด/ถัง (ผลิตในพื้นที่)" onchange="syncAs01Checkboxes('as02-use-chk','as02-use-sources')" /> 8.1 น้ำขวด/ถัง (ผลิตในพื้นที่)</label>
+                <label class="check-card"><input type="checkbox" class="as02-use-chk" value="8.2 น้ำบรรจุขวด/ถัง (ผลิตนอกพื้นที่)" onchange="syncAs01Checkboxes('as02-use-chk','as02-use-sources')" /> 8.2 น้ำขวด/ถัง (นอกพื้นที่)</label>
+                <label class="check-card" style="grid-column: span 2;"><input type="checkbox" class="as02-use-chk" value="9. ใช้น้ำจากแม่น้ำปนเปื้อนฯ" onchange="syncAs01Checkboxes('as02-use-chk','as02-use-sources')" /> 9. ใช้น้ำจากแม่น้ำที่ปนเปื้อนฯ</label>
+                <div class="form-group" style="margin:0;">
+                  <input type="text" id="as02-use-years" placeholder="ระบุจำนวนปีที่ใช้ (เช่น 15 ปี)" />
+                </div>
+              </div>
+            </div>
+
+            <!-- ข้อ 8: การรับประทานอาหาร (8.1 - 8.4 พร้อมอื่นๆ) -->
+            <div class="form-grid-4" style="margin-top:12px;">
+              <div class="form-group">
+                <label>8.1 ข้าว/ข้าวเหนียว ที่รับประทาน</label>
+                <select id="as02-food-rice" onchange="toggleOtherInput(this, 'as02-rice-other-wrap')">
+                  <option value="ปลูกเอง">ปลูกเอง (ตอบข้อ 9)</option>
+                  <option value="ซื้อจากตลาด หรือรถพุ่มพวง">ซื้อจากตลาด หรือรถพุ่มพวง</option>
+                  <option value="เก็บในพื้นที่ หรือแหล่งธรรมชาติ">เก็บในพื้นที่ หรือแหล่งธรรมชาติ</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="as02-rice-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-rice-other" placeholder="ระบุที่มาของข้าว..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>8.2 พืชผัก ที่รับประทาน</label>
+                <select id="as02-food-veg" onchange="toggleOtherInput(this, 'as02-veg-other-wrap')">
+                  <option value="ปลูกเอง">ปลูกเอง (ตอบข้อ 9)</option>
+                  <option value="ซื้อจากตลาด หรือรถพุ่มพวง">ซื้อจากตลาด หรือรถพุ่มพวง</option>
+                  <option value="เก็บในพื้นที่ หรือแหล่งธรรมชาติ">เก็บในพื้นที่ หรือแหล่งธรรมชาติ</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="as02-veg-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-veg-other" placeholder="ระบุที่มาของพืชผัก..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>8.3 สัตว์น้ำจืดอื่นๆ (ปลา กุ้งฝอย ฯลฯ)</label>
+                <select id="as02-food-fish" onchange="toggleOtherInput(this, 'as02-fish-other-wrap')">
+                  <option value="ซื้อจากตลาด หรือรถพุ่มพวง">ซื้อจากตลาด หรือรถพุ่มพวง</option>
+                  <option value="เก็บในพื้นที่ หรือแหล่งธรรมชาติ">เก็บในพื้นที่ หรือแหล่งธรรมชาติ</option>
+                  <option value="เลี้ยงเอง">เลี้ยงเอง</option>
+                  <option value="ไม่ได้กิน">ไม่ได้กิน</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="as02-fish-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-fish-other" placeholder="ระบุที่มาของสัตว์น้ำจืด..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>8.4 หอยขม หอยโข่ง หรือปูนา</label>
+                <select id="as02-food-snail" onchange="toggleOtherInput(this, 'as02-snail-other-wrap')">
+                  <option value="ซื้อจากตลาด หรือรถพุ่มพวง">ซื้อจากตลาด หรือรถพุ่มพวง</option>
+                  <option value="เก็บในพื้นที่ หรือแหล่งธรรมชาติ">เก็บในพื้นที่ หรือแหล่งธรรมชาติ</option>
+                  <option value="ไม่ได้กิน">ไม่ได้กิน</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="as02-snail-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-snail-other" placeholder="ระบุที่มาของหอย/ปูนา..." />
+                </div>
+              </div>
+            </div>
+
+            <!-- ข้อ 9 - 11 -->
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label>ข้อ 9. ถ้าปลูกพืชผักกินเอง พืชผักที่ปลูกได้แก่</label>
+                <input type="text" id="as02-home-veg" placeholder="เช่น ผักกาด ผักบุ้ง ข้าว พริก" />
+              </div>
+              <div class="form-group">
+                <label>แหล่งน้ำที่ใช้รดพืชผัก (ข้อ 9)</label>
+                <select id="as02-home-water" onchange="toggleOtherInput(this, 'as02-home-water-other-wrap')">
+                  <option value="3. บ่อน้ำบาดาล">3. บ่อน้ำบาดาล</option>
+                  <option value="1. บ่อน้ำตื้น">1. บ่อน้ำตื้น</option>
+                  <option value="2. น้ำผิวดิน เช่น คลอง ลำธาร หนอง บึง">2. น้ำผิวดิน (คลอง ลำธาร หนอง บึง)</option>
+                  <option value="4. น้ำประปา">4. น้ำประปา</option>
+                  <option value="5. น้ำประปาภูเขา">5. น้ำประปาภูเขา</option>
+                  <option value="6. น้ำฝน">6. น้ำฝน</option>
+                  <option value="OTHER">7. อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="as02-home-water-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-home-water-other" placeholder="ระบุแหล่งน้ำที่ใช้รดพืชผักอื่นๆ..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>ข้อ 10. กินพืช/ผักที่ปลูกบริเวณแม่น้ำปนเปื้อน ≥1 ครั้ง/สัปดาห์</label>
+                <select id="as02-eat-river-veg">
+                  <option value="2.ไม่ใช่">2. ไม่ใช่</option>
+                  <option value="1.ใช่">1. ใช่</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>ข้อ 11. ใน 5 ปีที่ผ่านมา เคยมีน้ำปนเปื้อนหลากเข้าบ้าน</label>
+                <select id="as02-flood-5y">
+                  <option value="2.ไม่เคย">2. ไม่เคย</option>
+                  <option value="1.เคย">1. เคย</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- คัดกรองสุขภาพจิต 2Q ในแบบฟอร์ม Env-As-02 -->
+            <div style="background:#f5f3ff; border:1px solid #c4b5fd; border-radius:8px; padding:10px 12px; margin-bottom:12px;">
+              <h5 style="margin:0 0 8px; font-size:13px; color:#6d28d9;"><i class="fa-solid fa-brain"></i> การคัดกรองสุขภาพจิต 2Q (โรคซึมเศร้า 2 คำถาม)</h5>
+              <div class="form-grid-3">
+                <div class="form-group" style="margin:0;">
+                  <label>ข้อ 1. ใน 2 สัปดาห์ที่ผ่านมา รู้สึกหดหู่ เศร้า หรือท้อแท้สิ้นหวัง</label>
+                  <select id="as02-q2-1" onchange="recalcModalAs02_2Q()">
+                    <option value="ไม่ใช่">ไม่ใช่ (ปกติ = 0)</option>
+                    <option value="ใช่">ใช่ (มีอาการ = 1)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label>ข้อ 2. ใน 2 สัปดาห์ที่ผ่านมา รู้สึกเบื่อ ทำอะไรก็ไม่เพลิดเพลิน</label>
+                  <select id="as02-q2-2" onchange="recalcModalAs02_2Q()">
+                    <option value="ไม่ใช่">ไม่ใช่ (ปกติ = 0)</option>
+                    <option value="ใช่">ใช่ (มีอาการ = 1)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label>สรุปผลคัดกรอง 2Q</label>
+                  <input type="text" id="as02-status-2q" readonly value="ยังไม่คัดกรอง" style="background:#fff; font-weight:700; color:#4c1d95;" />
+                </div>
+              </div>
+            </div>
+
+            <!-- ผู้สัมภาษณ์ / ตำแหน่ง / รพ.สต. -->
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>ชื่อ - สกุล ผู้สัมภาษณ์</label>
+                <input type="text" id="as02-interviewer" value="เจ้าหน้าที่สาธารณสุข" placeholder="ระบุชื่อ-สกุล ผู้สัมภาษณ์" />
+              </div>
+              <div class="form-group">
+                <label>ตำแหน่ง</label>
+                <input type="text" id="as02-role" value="นักวิชาการสาธารณสุข" placeholder="ระบุตำแหน่งผู้สัมภาษณ์" />
+              </div>
+              <div class="form-group">
+                <label>รพ.สต. / หน่วยงาน</label>
+                <select id="as02-hc" onchange="toggleOtherInput(this, 'as02-hc-other-wrap')">
+                  <option value="รพ.สต.บ้านท่าตอน">รพ.สต.บ้านท่าตอน</option>
+                  <option value="รพ.สต.บ้านท่ามะแกง">รพ.สต.บ้านท่ามะแกง</option>
+                  <option value="รพ.สต.บ้านเมืองงาม">รพ.สต.บ้านเมืองงาม</option>
+                  <option value="รพ.สต.บ้านแม่เมืองน้อย">รพ.สต.บ้านแม่เมืองน้อย</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="as02-hc-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="as02-hc-other" placeholder="ระบุชื่อ รพ.สต. หรือหน่วยงานอื่นๆ..." />
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="scrollToModalSection('as02-modal-body', 'as02-sec-header')">&uarr; ขึ้นบนสุด</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="scrollToModalSection('as02-modal-body', 'as02-sec-3b')">&darr; ไปส่วนท้ายฟอร์ม</button>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-outline" onclick="closeEnvAs02Modal()">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> บันทึกแบบฟอร์ม Env-As-02</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4: WATER QUALITY LAB RESULT (DOH 21 PARAMETERS) ==================== -->
+  <div id="water-lab-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-header">
+        <h3 id="water-lab-modal-title"><i class="fa-solid fa-flask-vial"></i> บันทึกผลการตรวจวิเคราะห์คุณภาพน้ำ (ตามเกณฑ์มาตรฐานกรมอนามัย 21 พารามิเตอร์)</h3>
+        <button type="button" class="btn-close" onclick="closeWaterLabModal()">&times;</button>
+      </div>
+      <div class="modal-section-nav">
+        <span><i class="fa-solid fa-compass"></i> ข้ามไปหมวดพารามิเตอร์:</span>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('waterlab-modal-body', 'wlab-sec-info')">1. ข้อมูลบ่อน้ำ & ใบแล็บ</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('waterlab-modal-body', 'wlab-sec-phys')">2. กายภาพ & เคมีทั่วไป (pH, สี, ความขุ่น, TDS)</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('waterlab-modal-body', 'wlab-sec-metal')">3. โลหะหนัก & สารพิษ (สารหนู As, Pb, Cd, Hg, Fe, Mn)</button>
+        <button type="button" class="btn-sec-jump" onclick="scrollToModalSection('waterlab-modal-body', 'wlab-sec-bact')">4. แร่ธาตุ & แบคทีเรียโคลิฟอร์ม</button>
+      </div>
+      <form id="water-lab-form" onsubmit="handleSaveWaterLab(event)">
+        <div class="modal-body" id="waterlab-modal-body">
+          <input type="hidden" id="wlab-id" />
+
+          <!-- Section 1: Well Link & Sample Info -->
+          <div class="form-section" id="wlab-sec-info" style="background:#eff6ff; border-color:#bfdbfe;">
+            <h4 class="sec-title"><i class="fa-solid fa-faucet-drip"></i> ส่วนที่ 1: เชื่อมโยงจุดบ่อน้ำ และข้อมูลการเก็บตัวอย่างส่งตรวจแล็บ</h4>
+            <div class="form-grid-4">
+              <div class="form-group" style="grid-column: span 2;">
+                <label>เลือกจุดแหล่งน้ำ / บ่อน้ำที่ส่งตรวจ (เชื่อมโยงจาก 147 บ่อ) *</label>
+                <select id="wlab-well-id" onchange="onWaterLabWellChange()"></select>
+              </div>
+              <div class="form-group">
+                <label>รหัสตัวอย่างแล็บ (เช่น P1-P43 หรือ LAB-001) *</label>
+                <input type="text" id="wlab-sample-code" required placeholder="เช่น P1 หรือ LAB69-01" />
+              </div>
+              <div class="form-group">
+                <label>วันที่เก็บตัวอย่างน้ำ *</label>
+                <input type="date" id="wlab-sample-date" required />
+              </div>
+            </div>
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>เกณฑ์มาตรฐานที่ใช้เปรียบเทียบผล *</label>
+                <select id="wlab-standard-type" onchange="buildWaterLabParamsInputs(Object.fromEntries(WATER_LAB_PARAMS.map(p=>[p.key,document.getElementById(\'wlab-inp-\'+p.key)?.value||\'\'])))">
+                  <option value="SOURCE_SSO">เกณฑ์ตามชีท สสอ. (หน่วยตามต้นฉบับ)</option><option value="DOH_2543">เกณฑ์คุณภาพน้ำประปา กรมอนามัย (ปี 2543)</option>
+                  <option value="RURAL">เกณฑ์คุณภาพน้ำบริโภคในชนบท</option>
+                  <option value="WHO_1984">เกณฑ์คุณภาพน้ำดื่ม WHO (ปี 2527)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>ห้องปฏิบัติการที่ตรวจวิเคราะห์</label>
+                <select id="wlab-lab-select" onchange="toggleOtherInput(this, 'wlab-lab-other-wrap')">
+                  <option value="ศูนย์วิทยาศาสตร์การแพทย์ที่ 1 เชียงใหม่">ศูนย์วิทยาศาสตร์การแพทย์ที่ 1 เชียงใหม่</option>
+                  <option value="ศูนย์วิทยาศาสตร์การแพทย์ที่ 1/1 เชียงราย">ศูนย์วิทยาศาสตร์การแพทย์ที่ 1/1 เชียงราย</option>
+                  <option value="ศูนย์อนามัยที่ 1 เชียงใหม่ (กรมอนามัย)">ศูนย์อนามัยที่ 1 เชียงใหม่ (กรมอนามัย)</option>
+                  <option value="สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 1">สำนักงานสิ่งแวดล้อมและควบคุมมลพิษที่ 1</option>
+                  <option value="ชุดทดสอบภาคสนาม (Field Test Kit)">ชุดทดสอบภาคสนาม (Field Test Kit)</option>
+                  <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+                </select>
+                <div id="wlab-lab-other-wrap" class="other-input-wrap" style="display:none;">
+                  <input type="text" id="wlab-lab-other" placeholder="ระบุชื่อห้องปฏิบัติการ/หน่วยงานที่ตรวจ..." />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>ผู้เก็บตัวอย่าง / เจ้าหน้าที่ผู้บันทึก</label>
+                <input type="text" id="wlab-collector" value="เจ้าหน้าที่สาธารณสุข" placeholder="ชื่อผู้เก็บตัวอย่างน้ำ" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Real-time Evaluation Banner -->
+          <div class="score-summary-banner" style="margin-bottom:14px;">
+            <div>
+              <span>ผลการประเมินเทียบเกณฑ์มาตรฐาน (เฉพาะตัวที่กรอกผลตรวจ):</span>
+              <strong id="wlab-live-summary" class="score-num" style="margin-left:8px;">รอการกรอกค่าพารามิเตอร์</strong>
+            </div>
+            <div id="wlab-live-badge" class="badge-risk risk-low">ผ่านเกณฑ์มาตรฐาน</div>
+          </div>
+
+          <!-- 21 Parameters Table -->
+          <div class="form-section" id="wlab-sec-phys">
+            <h4 class="sec-title"><i class="fa-solid fa-vials"></i> ส่วนที่ 2–4: บันทึกค่าพารามิเตอร์คุณภาพน้ำ (กรอกเฉพาะตัวที่ส่งตรวจ ระบบจะเทียบเกณฑ์ให้อัตโนมัติ)</h4>
+            <div class="table-responsive">
+              <table class="lab-param-table">
+                <thead>
+                  <tr>
+                    <th style="width:42px;">ลำดับ</th>
+                    <th style="text-align:left;">พารามิเตอร์คุณภาพน้ำ</th>
+                    <th>หน่วย</th>
+                    <th>เกณฑ์ WHO</th>
+                    <th>เกณฑ์น้ำบริโภคชนบท*</th>
+                    <th>เกณฑ์น้ำประปา กรมอนามัย**</th>
+                    <th style="width:135px;">ค่าที่ตรวจวัดได้</th>
+                    <th style="width:120px;">การแปลผล</th>
+                  </tr>
+                </thead>
+                <tbody id="wlab-params-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>ข้อเสนอแนะ / หมายเหตุผลแล็บ (เช่น แหล่งน้ำมีสีขุ่นหลังฝนตก แนะนำติดตั้งระบบกรองสนิมเหล็ก/แมงกานีส)</label>
+            <textarea id="wlab-notes" rows="2" placeholder="ระบุหมายเหตุหรือข้อเสนอแนะการปรับปรุงคุณภาพน้ำ..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <span style="font-size:12px; color:#64748b;"><i class="fa-solid fa-circle-info"></i> เมื่อบันทึกแล้ว ระบบจะอัปเดตค่าสารหนูและสถานะความปลอดภัยไปยังจุดบ่อน้ำที่เชื่อมโยงให้อัตโนมัติ</span>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-outline" onclick="closeWaterLabModal()">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> บันทึกผลตรวจแล็บน้ำ</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 5: WATER QUALITY STANDARD REFERENCE TABLE & IMAGE ==================== -->
+  <div id="water-std-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-table-list"></i> ตารางเกณฑ์มาตรฐานคุณภาพน้ำบริโภค (WHO / น้ำบริโภคในชนบท / น้ำประปา กรมอนามัย ปี 2543)</h3>
+        <button type="button" class="btn-close" onclick="closeWaterStandardModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="text-align:center; margin-bottom:16px;">
+          <img src="water-standard-doh.jpg" alt="เกณฑ์มาตรฐานคุณภาพน้ำบริโภค" style="max-width:100%; border-radius:10px; border:1px solid #cbd5e1; box-shadow:0 4px 12px rgba(0,0,0,0.08);" />
+        </div>
+        <div style="background:#fffbeb; border:1px solid #fde68a; padding:10px 14px; border-radius:8px; font-size:12.5px; color:#92400e;">
+          <b>หมายเหตุอ้างอิงตามประกาศกรมอนามัย:</b><br/>
+          • <b>*</b> = กำหนดโดย คณะกรรมการการบริหาร โครงการจัดให้มีน้ำสะอาดในชนบท ทั่วราชอาณาจักร<br/>
+          • <b>**</b> = ประกาศกรมอนามัย เรื่อง เกณฑ์คุณภาพน้ำประปา ปี 2543 (และเกณฑ์คุณภาพน้ำประปาดื่มได้ กรมอนามัย พ.ศ. 2563 กำหนดสารหนูไม่เกิน 0.01 มก./ล.)<br/>
+          • <b>***</b> = กำหนดให้มีคลอรีนอิสระตกค้างปลายท่อ 0.2 - 0.5 มก./ล. ใช้ในระบบการเฝ้าระวังคุณภาพน้ำประปา
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span>ที่มา: กรมอนามัย กระทรวงสาธารณสุข (Standard Methods for the Examination of Water and Wastewater)</span>
+        <button type="button" class="btn btn-primary" onclick="closeWaterStandardModal()">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 6: ADD NEW KNOWLEDGE / GUIDELINE DOCUMENT ==================== -->
+  <div id="kb-add-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-file-circle-plus"></i> เพิ่มไฟล์คู่มือ / เอกสารแนวทางปฏิบัติใหม่</h3>
+        <button type="button" class="btn-close" onclick="closeAddKnowledgeModal()">&times;</button>
+      </div>
+      <form id="kb-add-form" onsubmit="handleSaveKnowledgeDoc(event)">
+        <div class="modal-body">
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>ชื่อเอกสารคู่มือ / แนวทางปฏิบัติ *</label>
+              <input type="text" id="kb-title" required placeholder="เช่น แนวทางการเก็บตัวอย่างน้ำและปัสสาวะ อ.แม่อาย" />
+            </div>
+            <div class="form-group">
+              <label>หมวดหมู่เอกสาร *</label>
+              <select id="kb-category" required onchange="toggleOtherInput(this, 'kb-cat-other-wrap')">
+                <option value="แนวทางปฏิบัติ/คู่มือ">แนวทางปฏิบัติ / คู่มือกรมควบคุมโรค</option>
+                <option value="มาตรฐานคุณภาพน้ำ/สิ่งแวดล้อม">มาตรฐานคุณภาพน้ำ / สิ่งแวดล้อม (กรมอนามัย/คพ.)</option>
+                <option value="แบบฟอร์มคัดกรอง/สอบสวนโรค">แบบฟอร์มคัดกรอง / สอบสวนโรค (Env-As)</option>
+                <option value="เอกสารเพิ่มเติมของพื้นที่">เอกสารเพิ่มเติมของพื้นที่ อ.แม่อาย</option>
+                <option value="OTHER">อื่นๆ (โปรดระบุ...)</option>
+              </select>
+              <div id="kb-cat-other-wrap" class="other-input-wrap" style="display:none;">
+                <input type="text" id="kb-cat-other" placeholder="ระบุหมวดหมู่เอกสารอื่นๆ..." />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>หน่วยงานเจ้าของเอกสาร / ผู้จัดทำ</label>
+              <input type="text" id="kb-author" value="กองโรคจากการประกอบอาชีพและสิ่งแวดล้อม / สสอ.แม่อาย" placeholder="ระบุหน่วยงาน" />
+            </div>
+            <div class="form-group">
+              <label>วันที่เผยแพร่ / อัปเดต</label>
+              <input type="date" id="kb-date" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>คำอธิบายสรุปเนื้อหาเอกสาร</label>
+            <textarea id="kb-desc" rows="2" placeholder="ระบุรายละเอียดสรุปของคู่มือหรือแนวทางปฏิบัตินี้..."></textarea>
+          </div>
+
+          <div class="form-section" style="background:#f0fdf4; border-color:#bbf7d0;">
+            <h4 class="sec-title"><i class="fa-solid fa-paperclip"></i> เลือกวิธีแนบไฟล์คู่มือ (เลือกอย่างใดอย่างหนึ่ง หรือทั้งสองอย่าง)</h4>
+            <div class="form-group">
+              <label>วิธีที่ 1: เลือกไฟล์จากเครื่องคอมพิวเตอร์ (.PDF, .JPG, .PNG, .DOCX, .XLSX)</label>
+              <input type="file" id="kb-file-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.pptx" />
+              <small style="color:#64748b;">หากไฟล์มีขนาดเล็ก (ไม่เกิน 4 MB) ระบบจะบันทึกไฟล์ฝังไว้ในระบบให้เปิดดูได้ทันที หรือวางไฟล์ไว้ในโฟลเดอร์โปรเจกต์แล้วระบุชื่อไฟล์ในช่องด้านล่าง</small>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>วิธีที่ 2: ระบุชื่อไฟล์ในโฟลเดอร์โปรเจกต์ หรือวางลิงก์ Google Drive / เว็บไซต์ภายนอก</label>
+              <input type="text" id="kb-file-url" placeholder="เช่น แนวทางการเฝ้าระวังผลกระทบต่อสุขภาพประชา.pdf หรือ https://drive.google.com/..." />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <span style="font-size:12px; color:#64748b;">เอกสารที่เพิ่มใหม่จะแสดงเป็นการ์ดในแท็บความรู้/คู่มือ และซิงค์กับ Google Sheets</span>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-outline" onclick="closeAddKnowledgeModal()">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> บันทึกเอกสารคู่มือ</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 7: BUILT-IN PDF / IMAGE DOCUMENT VIEWER ==================== -->
+  <div id="kb-viewer-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-xl" style="height:92vh;">
+      <div class="modal-header">
+        <h3 id="kb-viewer-title"><i class="fa-solid fa-book-open"></i> เปิดอ่านเอกสารคู่มือ</h3>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <a id="kb-viewer-download" href="#" target="_blank" download class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-download"></i> เปิดในแท็บใหม่ / ดาวน์โหลดไฟล์
+          </a>
+          <button type="button" class="btn-close" onclick="closeKnowledgeViewer()">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body" id="kb-viewer-body" style="padding:0; height:100%; overflow:hidden; display:flex; flex-direction:column; background:#1e293b;">
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 8: 2Q MENTAL HEALTH SCREENING MODAL ==================== -->
+  <div id="modal-2q" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header" style="background:linear-gradient(90deg, #5b21b6 0%, #7c3aed 100%); color:#fff;">
+        <h3 style="color:#fff;"><i class="fa-solid fa-brain"></i> บันทึกผลการคัดกรองโรคซึมเศร้าด้วย 2 คำถาม (2Q)</h3>
+        <button type="button" class="btn-close" style="color:#fff;" onclick="close2QModal()">&times;</button>
+      </div>
+      <form id="form-2q" onsubmit="handleSave2QModal(event)">
+        <div class="modal-body">
+          <div class="form-section" style="background:#f5f3ff; border-color:#ddd6fe;">
+            <h4 class="sec-title" style="color:#5b21b6;"><i class="fa-solid fa-user-check"></i> 1. เลือกผู้รับการคัดกรอง 2Q (จากทะเบียน 244 ราย หรือค้นหาชื่อ)</h4>
+            <div class="form-grid-3">
+              <div class="form-group" style="grid-column: span 2;">
+                <label>เลือกผู้รับการคัดกรองจากรายชื่อในระบบ *</label>
+                <select id="m2q-resp-select" required onchange="onSelect2QRespondent(this.value)"></select>
+              </div>
+              <div class="form-group">
+                <label>วันที่คัดกรอง 2Q *</label>
+                <input type="date" id="m2q-date" required />
+              </div>
+            </div>
+            <div id="m2q-person-info" style="font-size:12.5px; color:#4c1d95; background:#ede9fe; padding:8px 12px; border-radius:8px; margin-top:6px;">
+              กรุณาเลือกรายชื่อผู้รับการคัดกรอง...
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h4 class="sec-title"><i class="fa-solid fa-clipboard-question"></i> 2. คำถามคัดกรองโรคซึมเศร้า 2 คำถาม (2Q) — ในช่วง 2 สัปดาห์ที่ผ่านมา รวมวันนี้</h4>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div style="font-weight:600; color:#1e293b; font-size:14px;">
+                  1. ใน 2 สัปดาห์ที่ผ่านมา รวมวันนี้ ท่านรู้สึก <b>หดหู่ เศร้า หรือท้อแท้สิ้นหวัง</b> หรือไม่?
+                </div>
+                <div style="display:flex; gap:14px;">
+                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600; color:#15803d;">
+                    <input type="radio" name="m2q_q1" id="m2q-q1-no" value="ไม่ใช่" checked onchange="evaluate2QModalLive()" /> ไม่ใช่ (ปกติ)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700; color:#b91c1c;">
+                    <input type="radio" name="m2q_q1" id="m2q-q1-yes" value="ใช่" onchange="evaluate2QModalLive()" /> ใช่ (มีอาการ)
+                  </label>
+                </div>
+              </div>
+
+              <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div style="font-weight:600; color:#1e293b; font-size:14px;">
+                  2. ใน 2 สัปดาห์ที่ผ่านมา รวมวันนี้ ท่านรู้สึก <b>เบื่อ ทำอะไรก็ไม่เพลิดเพลิน</b> หรือไม่?
+                </div>
+                <div style="display:flex; gap:14px;">
+                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600; color:#15803d;">
+                    <input type="radio" name="m2q_q2" id="m2q-q2-no" value="ไม่ใช่" checked onchange="evaluate2QModalLive()" /> ไม่ใช่ (ปกติ)
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700; color:#b91c1c;">
+                    <input type="radio" name="m2q_q2" id="m2q-q2-yes" value="ใช่" onchange="evaluate2QModalLive()" /> ใช่ (มีอาการ)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div id="m2q-live-banner" class="score-summary-banner" style="margin-top:14px; background:#f0fdf4; border:1px solid #86efac; color:#166534;">
+              <div>
+                <span>สรุปผลการประเมิน 2Q: </span>
+                <strong id="m2q-live-result" style="font-size:15px;">ปกติ ไม่พบความเสี่ยงโรคซึมเศร้า (2Q Negative)</strong>
+              </div>
+              <span id="m2q-live-advice" style="font-size:12.5px;">แนวทาง: แจ้งผลให้ทราบ แนะนำการดูแลสุขภาพจิตเบื้องต้น</span>
+            </div>
+
+            <div class="form-grid-2" style="margin-top:12px;">
+              <div class="form-group">
+                <label>เจ้าหน้าที่ผู้คัดกรอง / ประเมิน 2Q</label>
+                <input type="text" id="m2q-assessor" value="เจ้าหน้าที่สาธารณสุข อ.แม่อาย" placeholder="ระบุชื่อผู้ประเมิน" />
+              </div>
+              <div class="form-group">
+                <label>หมายเหตุ / การส่งต่อประเมิน 9Q</label>
+                <input type="text" id="m2q-note" placeholder="เช่น ส่งต่อประเมิน 9Q หรือ ให้คำปรึกษาเบื้องต้น..." />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <span style="font-size:12px; color:#64748b;">ผลการคัดกรอง 2Q จะอัปเดตขึ้นแดชบอร์ดและเชื่อมโยงกับข้อมูล Env-As-01 / Env-As-02 ทันที</span>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-outline" onclick="close2QModal()">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary" style="background:#7c3aed; border-color:#6d28d9;">
+              <i class="fa-solid fa-floppy-disk"></i> บันทึกผลการคัดกรอง 2Q
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 9: WELL PHOTOS / PDF ATTACHMENTS VIEWER ==================== -->
+  <div id="well-gallery-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="well-gallery-title"><i class="fa-solid fa-images"></i> รูปภาพและไฟล์แนบของจุดแหล่งน้ำ</h3>
+        <button type="button" class="btn-close" onclick="closeWellGalleryModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="well-gallery-body"></div>
+      <div class="modal-footer">
+        <span style="font-size:12px; color:#64748b;">สามารถเพิ่มหรือแก้ไขไฟล์แนบ (สูงสุด 5 ไฟล์: JPEG, PNG, PDF) ได้ที่ปุ่มแก้ไขจุดแหล่งน้ำ</span>
+        <button type="button" class="btn btn-primary" onclick="closeWellGalleryModal()">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Seed Data (147 Water Wells + 130 Env-As-01 + Env-As-02) -->
+  <script src="data.js?v=source69-20261029"></script>
+  <!-- Main Application Logic -->
+  <script src="app.js?v=source69-20261029"></script>
+</body>
+</html>
